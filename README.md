@@ -12,6 +12,10 @@
 **开源协议：** MIT License，可自由商用。详见 `LICENSE`。
 
 * 体验地址：http://47.110.138.209:10001 账号：admin 密码： admin888
+* Rebucca 智能视频监控交流群
+<p align="center">
+<img src="static/images/rebucca_qq.jpg" width="300" alt="Rebucca 智能视频监控交流群">
+</p>
 
 ---
 
@@ -60,9 +64,13 @@ sudo apt -f install
 
 ```bash
 # Windows
+pip install -r requirements-windows.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+或
 pip install -r requirements-windows.txt
 
 # Linux
+pip install -r requirements-linux.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+或
 pip install -r requirements-linux.txt
 ```
 
