@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <title>{{ T.llm_test_title|default:'大模型测试' }}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #f5f7fa; min-height: 100vh; }
+        .wrap { display: flex; gap: 16px; padding: 16px; max-width: 1200px; margin: 0 auto; flex-wrap: wrap; }
+        .panel { background: #fff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 18px; flex: 1; min-width: 280px; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+        .panel h4 { margin: 0 0 14px; font-size: 15px; color: #1e293b; border-bottom: 2px solid #169F85; padding-bottom: 8px; }
+        label { display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px; }
+        input, textarea { width: 100%; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; margin-bottom: 12px; transition: border-color .15s, box-shadow .15s; }
+        input:focus, textarea:focus { outline: none; border-color: #169F85; box-shadow: 0 0 0 3px rgba(22,159,133,.12); }
+        textarea { min-height: 72px; resize: vertical; }
+        .upload-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;background:#f8fafc;border:1px dashed #dbeafe;border-radius:8px;cursor:pointer;transition:.15s;margin-bottom:12px;}
+        .upload-bar:hover,.upload-bar.drag{border-color:#169F85;background:#f0fdf9;}
+        .upload-bar input{display:none;}
+        .btn-upload{flex-shrink:0;padding:6px 14px;font-size:12px;font-weight:600;border-radius:6px;border:1px solid #169F85;background:#fff;color:#169F85;cursor:pointer;pointer-events:none;}
+        .upload-bar:hover .btn-upload{background:#169F85;color:#fff;}
+        .upload-meta{flex:1;min-width:120px;}
+        .upload-meta .name{font-size:12px;color:#334155;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+        .upload-meta .hint{font-size:11px;color:#94a3b8;margin-top:2px;}
+        .preview-wrap{margin-bottom:12px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;background:#fff;}
+        .preview-head{padding:6px 10px;font-size:11px;font-weight:600;color:#64748b;background:#fafbfc;border-bottom:1px solid #f1f5f9;}
+        .preview { min-height: 160px; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 13px; overflow: hidden; background: #f1f5f9; padding: 8px; }
+        .preview img { max-width: 100%; max-height: 220px; object-fit: contain; display: block; }
+        .btn { padding: 10px 22px; border: none; border-radius: 8px; background: linear-gradient(135deg,#14b89a,#169F85); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+        .btn:disabled { opacity: .6; cursor: not-allowed; }
+        .result { margin-top: 14px; padding: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; display: none; }
+        .loading { margin-top: 14px; color: #64748b; font-size: 13px; display: none; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <div class="panel" style="max-width:320px;flex:0 0 320px;">
+        <h4>{{ T.llm_test_title|default:'大模型测试' }}</h4>
+        <input type="hidden" id="inferenceTool" value="OpenAI">
+        <label>{{ T.llm_test_model|default:'模型名称' }}</label>
+        <input type="text" id="model" value="gpt-4o">
+        <label>{{ T.llm_test_api_url|default:'API地址' }}</label>
+        <textarea id="apiUrl" rows="3">https://api.openai.com/v1</textarea>
+        <label>{{ T.llm_api_key|default:'API密钥' }}</label>
+        <input type="password" id="apiKey" placeholder="{{ T.llm_test_api_key_opt|default:'可选' }}">
+        <label>{{ T.llm_test_timeout_sec|default:'超时时间(秒)' }}</label>
+        <input type="number" id="timeout" value="30">
+    </div>
+    <div class="panel" style="flex:2;min-width:320px;">
+        <h4>{{ T.llm_test_section|default:'视觉测试' }}</h4>
+        <div class="upload-bar" id="dropArea">
+            <input type="file" id="testImage" accept="image/*,.jpg,.jpeg,.png,.webp,.bmp">
+            <span class="btn-upload">{{ T.llm_test_pick_file|default:'选择图片' }}</span>
+            <div class="upload-meta">
+                <div class="name" id="pickedName">{{ T.llm_test_upload_hint|default:'JPG / PNG / WebP，单张图片' }}</div>
+                <div class="hint" id="pickedHint">{{ T.llm_test_upload_sub|default:'点击或拖拽到此处' }}</div>
+            </div>
+        </div>
+        <div class="preview-wrap">
+            <div class="preview-head">{{ T.llm_test_preview_area|default:'预览区域' }}</div>
+            <div id="imagePreview" class="preview">{{ T.llm_test_preview_empty|default:'选择图片后可预览' }}</div>
+        </div>
+        <label>{{ T.llm_test_prompt|default:'提示词' }}</label>
+        <textarea id="prompt">{{ T.llm_test_default_prompt|default:'请详细描述图片中的内容，包括人物、物体、场景等信息。' }}</textarea>
+        <button type="button" class="btn" id="btnTest">{{ T.llm_test_btn|default:'测试' }}</button>
+        <div class="loading" id="testLoading">{{ T.llm_test_analyzing|default:'分析中...' }}</div>
+        <div class="result" id="testResult"></div>
+    </div>
+</div>
+<script>
+window.LANG = {{ T_JSON|safe }};
+function _t(k, d) { return (window.LANG && window.LANG[k]) ? window.LANG[k] : (d || k); }
+
+var g_selectedFile = null;
+
+function getCsrfToken() {
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    if (meta && meta.content) return meta.content;
+    var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : '';
+}
+
+function parseJsonResponse(r) {
+    if (!r.ok) {
+        return r.text().then(function(text) {
+            if (text && text.trim().charAt(0) === '<') {
+                throw new Error(_t('llm_test_session_expired', '会话已失效，请关闭弹窗后重新登录再试'));
+            }
+            throw new Error('HTTP ' + r.status);
+        });
+    }
+    return r.text().then(function(text) {
+        try { return JSON.parse(text); }
+        catch (e) {
+            if (text && text.trim().charAt(0) === '<') {
+                throw new Error(_t('llm_test_not_json', '服务器返回异常页面，请刷新后重试'));
+            }
+            throw new Error(_t('llm_test_not_json', '服务器返回异常页面，请刷新后重试'));
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var params = new URLSearchParams(location.search);
+    var code = params.get('code');
+    if (code) {
+        fetch('/llm/openInfo?code=' + encodeURIComponent(code), { credentials: 'same-origin' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.code === 1000 && data.info) {
+                    var info = data.info;
+                    document.getElementById('model').value = info.model_name || '';
+                    document.getElementById('apiUrl').value = info.api_url || '';
+                    document.getElementById('apiKey').value = info.api_key || '';
+                    document.getElementById('timeout').value = info.timeout || 30;
+                }
+            });
+    }
+});
+
+document.getElementById('testImage').addEventListener('change', function(e) {
+    setImageFile(e.target.files[0]);
+});
+
+function formatBytes(n) {
+    if (!n) return '0 B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    return (n / 1024 / 1024).toFixed(2) + ' MB';
+}
+
+function setImageFile(file) {
+    var box = document.getElementById('imagePreview');
+    if (!file) return;
+    if (!/^image\//.test(file.type) && !/\.(jpg|jpeg|png|webp|bmp)$/i.test(file.name)) {
+        alert(_t('llm_test_select_img_err', '请选择测试图片'));
+        return;
+    }
+    g_selectedFile = file;
+    document.getElementById('pickedName').textContent = file.name;
+    document.getElementById('pickedHint').textContent = formatBytes(file.size);
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+        box.innerHTML = '<img src="' + ev.target.result + '" alt="preview">';
+    };
+    reader.readAsDataURL(file);
+}
+
+(function initDrop() {
+    var zone = document.getElementById('dropArea');
+    var input = document.getElementById('testImage');
+    if (!zone || !input) return;
+    zone.addEventListener('click', function() { input.click(); });
+    zone.addEventListener('dragover', function(e) { e.preventDefault(); zone.classList.add('drag'); });
+    zone.addEventListener('dragleave', function() { zone.classList.remove('drag'); });
+    zone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        zone.classList.remove('drag');
+        if (e.dataTransfer.files[0]) setImageFile(e.dataTransfer.files[0]);
+    });
+})();
+
+document.getElementById('btnTest').addEventListener('click', function() {
+    var file = g_selectedFile || (document.getElementById('testImage').files[0] || null);
+    if (!file) {
+        alert(_t('llm_test_select_img_err', '请选择测试图片'));
+        return;
+    }
+    var fd = new FormData();
+    fd.append('image', file);
+    fd.append('api_url', document.getElementById('apiUrl').value);
+    fd.append('api_key', document.getElementById('apiKey').value);
+    fd.append('timeout', document.getElementById('timeout').value);
+    fd.append('model', document.getElementById('model').value);
+    fd.append('inferenceTool', 'OpenAI');
+    fd.append('prompt', document.getElementById('prompt').value);
+    var code = new URLSearchParams(location.search).get('code');
+    if (code) fd.append('code', code);
+    var csrf = getCsrfToken();
+    if (csrf) fd.append('csrfmiddlewaretoken', csrf);
+
+    var t0 = Date.now();
+    document.getElementById('testLoading').style.display = 'block';
+    document.getElementById('testResult').style.display = 'none';
+    document.getElementById('btnTest').disabled = true;
+
+    fetch('/llm/openTest', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'X-CSRFToken': getCsrfToken() },
+        body: fd
+    })
+        .then(parseJsonResponse)
+        .then(function(data) {
+            var sec = ((Date.now() - t0) / 1000).toFixed(2);
+            document.getElementById('testLoading').style.display = 'none';
+            document.getElementById('btnTest').disabled = false;
+            var el = document.getElementById('testResult');
+            el.style.display = 'block';
+            if (data.code === 1000) {
+                el.style.color = '#1f2937';
+                el.textContent = _t('llm_test_time_prefix', '分析时间：') + sec + 's\n\n' + (data.result || '');
+            } else {
+                el.style.color = '#dc2626';
+                el.textContent = _t('llm_test_fail_prefix', '分析失败：') + (data.msg || '');
+            }
+        })
+        .catch(function(err) {
+            document.getElementById('testLoading').style.display = 'none';
+            document.getElementById('btnTest').disabled = false;
+            var el = document.getElementById('testResult');
+            el.style.display = 'block';
+            el.style.color = '#dc2626';
+            el.textContent = _t('llm_test_req_fail_prefix', '请求失败：') + err.message;
+        });
+});
+</script>
+</body>
+</html>

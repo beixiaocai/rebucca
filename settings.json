@@ -1,0 +1,110 @@
+{
+  "lang_default": "zh",
+  "languages": {
+    "zh": {
+      "code": "zh",
+      "name": "简体中文",
+      "filename": "language-zh.json",
+      "oem": {
+        "name": "rebucca",
+        "welcome": "欢迎",
+        "logo_url": "/static/images/logo.png?v=20260620f",
+        "bottom_name": "rebucca",
+        "is_show_author": true,
+        "author": "宇图瑞视",
+        "author_link": "https://www.yuturuishi.com",
+        "check_version_download_url": "https://beixiaocai.yuque.com/org-wiki-beixiaocai-vo72oa/rebucca/cyywhc7osg7m67qh"
+      }
+    },
+    "zh-hk": {
+      "code": "zh-hk",
+      "name": "繁體中文",
+      "filename": "language-zh-hk.json",
+      "oem": {
+        "name": "rebucca",
+        "welcome": "歡迎",
+        "logo_url": "/static/images/logo.png",
+        "bottom_name": "rebucca",
+        "is_show_author": true,
+        "author": "宇圖瑞視",
+        "author_link": "https://www.yuturuishi.com",
+        "check_version_download_url": "https://beixiaocai.yuque.com/org-wiki-beixiaocai-vo72oa/rebucca/cyywhc7osg7m67qh"
+      }
+    },
+    "en": {
+      "code": "en",
+      "name": "English",
+      "filename": "language-en.json",
+      "oem": {
+        "name": "rebucca",
+        "welcome": "Welcome",
+        "logo_url": "/static/images/logo.png",
+        "bottom_name": "rebucca",
+        "is_show_author": true,
+        "author": "YutuRuiShi",
+        "author_link": "https://www.yuturuishi.com",
+        "check_version_download_url": "https://beixiaocai.yuque.com/org-wiki-beixiaocai-vo72oa/rebucca/cyywhc7osg7m67qh"
+      }
+    },
+    "es": {
+      "code": "es",
+      "name": "Español",
+      "filename": "language-es.json",
+      "oem": {
+        "name": "rebucca",
+        "welcome": "Bienvenido",
+        "logo_url": "/static/images/logo.png",
+        "bottom_name": "rebucca",
+        "is_show_author": true,
+        "author": "YutuRuiShi",
+        "author_link": "https://www.yuturuishi.com",
+        "check_version_download_url": "https://beixiaocai.yuque.com/org-wiki-beixiaocai-vo72oa/rebucca/cyywhc7osg7m67qh"
+      }
+    },
+    "ru": {
+      "code": "ru",
+      "name": "Русский",
+      "filename": "language-ru.json",
+      "oem": {
+        "name": "rebucca",
+        "welcome": "Добро пожаловать",
+        "logo_url": "/static/images/logo.png",
+        "bottom_name": "rebucca",
+        "is_show_author": true,
+        "author": "YutuRuiShi",
+        "author_link": "https://www.yuturuishi.com",
+        "check_version_download_url": "https://beixiaocai.yuque.com/org-wiki-beixiaocai-vo72oa/rebucca/cyywhc7osg7m67qh"
+      }
+    },
+    "ko": {
+      "code": "ko",
+      "name": "한국어",
+      "filename": "language-ko.json",
+      "oem": {
+        "name": "rebucca",
+        "welcome": "환영합니다",
+        "logo_url": "/static/images/logo.png",
+        "bottom_name": "rebucca",
+        "is_show_author": true,
+        "author": "YutuRuiShi",
+        "author_link": "https://www.yuturuishi.com",
+        "check_version_download_url": "https://beixiaocai.yuque.com/org-wiki-beixiaocai-vo72oa/rebucca/cyywhc7osg7m67qh"
+      }
+    },
+    "vi": {
+      "code": "vi",
+      "name": "Tiếng Việt",
+      "filename": "language-vi.json",
+      "oem": {
+        "name": "rebucca",
+        "welcome": "Chào mừng",
+        "logo_url": "/static/images/logo.png",
+        "bottom_name": "rebucca",
+        "is_show_author": true,
+        "author": "YutuRuiShi",
+        "author_link": "https://www.yuturuishi.com",
+        "check_version_download_url": "https://beixiaocai.yuque.com/org-wiki-beixiaocai-vo72oa/rebucca/cyywhc7osg7m67qh"
+      }
+    }
+  }
+}

@@ -1,0 +1,702 @@
+<!--
+作者：北小菜
+官网：https://www.yuturuishi.com
+微信：bilibili_bxc
+哔哩哔哩主页：https://space.bilibili.com/487906612
+gitee地址：https://gitee.com/Vanishi/rebucca
+github地址：https://github.com/beixiaocai/rebucca
+-->
+
+{% extends "app/base.html" %}
+{% load static %}
+
+{% block title %}{{ T.nav_small_models|default:'小模型管理' }} - {{ settings.name|default:"Rebucca" }}{% endblock %}
+{% block nav_small_models %}active{% endblock %}
+{% block page_title %}{{ T.nav_small_models|default:'小模型管理' }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.alg-page{max-width:1200px;margin:0 auto;}
+.alg-card{background:#fff;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.05);overflow:hidden;}
+.alg-head{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;
+  background:linear-gradient(135deg,#f8fbfa 0%,#f0f9f6 100%);border-bottom:1px solid var(--c-border-light,#eef2f5);gap:10px;flex-wrap:wrap;}
+.alg-head h3{margin:0;font-size:15px;font-weight:600;color:#2c3e50;display:flex;align-items:center;gap:8px;}
+.alg-head h3 .dot{width:8px;height:8px;border-radius:50%;background:#169F85;box-shadow:0 0 0 3px rgba(22,159,133,.15);}
+.alg-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.alg-toolbar select{padding:6px 10px;font-size:12px;border:1px solid var(--c-border,#dcdfe6);border-radius:6px;background:#fff;}
+.btn{padding:7px 14px;font-size:12px;border-radius:6px;border:1px solid var(--c-border,#dcdfe6);background:#fff;cursor:pointer;}
+.btn:hover{color:#169F85;border-color:#169F85;background:#f0f9f6;}
+.btn-primary{background:linear-gradient(135deg,#14b89a 0%,#169F85 100%);color:#fff;border-color:transparent;}
+
+.alg-engines{display:flex;gap:8px;padding:12px 20px;background:#fafbfc;border-bottom:1px solid var(--c-border-light,#eef2f5);flex-wrap:wrap;align-items:center;}
+.alg-engines .lbl{font-size:11px;color:#6b7280;font-weight:600;margin-right:4px;}
+.engine-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:14px;font-size:11px;font-weight:600;border:1px solid var(--c-border,#dcdfe6);background:#fff;color:#6b7280;}
+.engine-chip .ic{width:7px;height:7px;border-radius:50%;background:#9ca3af;}
+.engine-chip.on{background:#d1fae5;color:#065f46;border-color:#a7f3d0;}
+.engine-chip.on .ic{background:#10b981;}
+.engine-chip.off{background:#fef2f2;color:#991b1b;border-color:#fecaca;}
+.engine-chip.off .ic{background:#ef4444;}
+.engine-chip .ver{font-size:10px;opacity:.7;font-weight:500;}
+
+.alg-table{width:100%;border-collapse:collapse;}
+.alg-table th,.alg-table td{padding:10px 14px;font-size:13px;text-align:left;border-bottom:1px solid #f3f4f6;}
+.alg-table th{background:#fafbfc;color:#6b7280;font-weight:600;font-size:12px;}
+.alg-table tr:hover td{background:#f9fafb;}
+.tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;}
+.tag-on{background:#d1fae5;color:#065f46;}
+.tag-off{background:#f3f4f6;color:#6b7280;}
+.tag-default{background:#fef3c7;color:#92400e;}
+.tag-engine{background:#e0f2fe;color:#075985;}
+.alg-body{position:relative;min-height:360px;}
+.alg-empty{display:flex;align-items:center;justify-content:center;min-height:360px;padding:40px 20px;color:var(--c-text-tertiary,#9ca3af);font-size:14px;}
+.alg-empty .ic{margin-right:8px;font-size:22px;opacity:.45;}
+.alg-actions{display:flex;gap:6px;flex-wrap:wrap;}
+.alg-actions .btn{padding:4px 10px;font-size:11px;}
+.alg-name-cell{font-weight:600;color:#1f2937;}
+.alg-id-cell{color:#6b7280;font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.alg-name-cell .ver{font-size:11px;color:#6b7280;font-weight:400;margin-left:6px;}
+.cell-stack{display:flex;flex-direction:column;gap:2px;line-height:1.3;}
+.cell-stack .cell-main{font-size:13px;color:#1f2937;font-weight:500;}
+.cell-stack .cell-sub{font-size:11px;color:#6b7280;}
+.alg-labels{max-width:240px;font-size:11px;color:#6b7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.alg-model-file{font-size:11px;color:#9ca3af;font-family:Consolas,Monaco,monospace;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+/* 模态弹框（沿用 zone 模态风格） */
+.modal-overlay{position:fixed;inset:0;z-index:400;background:rgba(15,23,42,.35);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:20px;}
+.modal-overlay.show{display:flex;}
+.modal-box{width:min(640px,96vw);max-height:92vh;background:#fff;border-radius:12px;box-shadow:0 16px 48px rgba(0,0,0,.12);border:1px solid var(--c-border,#e2e8f0);display:flex;flex-direction:column;overflow:hidden;animation:mIn .22s ease;}
+@keyframes mIn{from{opacity:0;transform:scale(.98) translateY(6px)}to{opacity:1;transform:none}}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--c-border-light,#eef2f5);background:linear-gradient(135deg,#f8fbfa 0%,#f0f9f6 100%);}
+.modal-head h3{margin:0;font-size:15px;font-weight:600;color:#2c3e50;display:flex;align-items:center;gap:8px;}
+.modal-head h3::before{content:'';width:8px;height:8px;border-radius:50%;background:#169F85;box-shadow:0 0 0 3px rgba(22,159,133,.15);}
+.modal-close{width:32px;height:32px;border:1px solid var(--c-border,#e2e8f0);border-radius:8px;background:#fff;color:#64748b;font-size:18px;line-height:1;cursor:pointer;transition:.15s;}
+.modal-close:hover{border-color:#169F85;color:#169F85;background:#f0f9f6;}
+.modal-body{padding:18px 20px;overflow:auto;flex:1;}
+.modal-foot{padding:12px 20px;border-top:1px solid var(--c-border-light,#eef2f5);display:flex;justify-content:flex-end;gap:8px;background:linear-gradient(135deg,#f8fbfa 0%,#f0f9f6 100%);}
+.form-row{margin-bottom:14px;}
+.form-row label{display:block;font-size:12px;font-weight:600;color:#6b7280;margin-bottom:5px;}
+.form-row input,.form-row select,.form-row textarea{width:100%;padding:8px 10px;font-size:13px;border:1px solid var(--c-border,#dcdfe6);border-radius:6px;background:#fff;color:#2c3e50;transition:border-color .15s,box-shadow .15s;font-family:inherit;}
+.form-row input:focus,.form-row select:focus,.form-row textarea:focus{outline:none;border-color:#169F85;box-shadow:0 0 0 2px rgba(22,159,133,.12);}
+.form-row textarea{resize:vertical;min-height:80px;font-family:Consolas,Monaco,monospace;font-size:12px;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.form-grid .form-row{margin-bottom:0;}
+.form-grid + .form-row{margin-top:12px;}
+
+/* 上传区 */
+.upload-zone{border:2px dashed var(--c-border,#dcdfe6);border-radius:8px;padding:20px;text-align:center;cursor:pointer;transition:.15s;background:#fafbfc;}
+.upload-zone:hover{border-color:#169F85;background:#f0f9f6;}
+.upload-zone.drag{border-color:#169F85;background:#ecfdf5;}
+.upload-zone .ic{font-size:24px;color:#169F85;opacity:.5;}
+.upload-zone .tip{font-size:12px;color:#6b7280;margin-top:6px;}
+.upload-zone .filename{font-size:12px;color:#169F85;margin-top:6px;font-weight:600;word-break:break-all;}
+.upload-progress{height:4px;background:#e5e7eb;border-radius:2px;margin-top:8px;overflow:hidden;display:none;}
+.upload-progress.show{display:block;}
+.upload-progress .bar{height:100%;background:linear-gradient(90deg,#14b89a,#169F85);width:0;transition:width .2s;}
+.probe-result{margin-top:10px;padding:10px;background:#f0f9f6;border-radius:6px;font-size:12px;color:#374151;display:none;}
+.probe-result.show{display:block;}
+.probe-result .row{display:flex;justify-content:space-between;padding:2px 0;}
+.probe-result .row b{color:#169F85;font-weight:600;}
+.probe-result .err{color:#dc2626;}
+
+.btn-sm{padding:4px 10px;font-size:11px;}
+.btn-success{color:#0e7a65;border-color:#169F85;background:#ecfdf5;}
+
+/* 顶部重要提示条 */
+.tip-bar{display:none;align-items:flex-start;gap:10px;padding:12px 16px;margin:0 0 12px;border-radius:10px;font-size:13px;line-height:1.6;}
+.tip-bar.show{display:flex;}
+.tip-bar.warn{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;}
+.tip-bar.info{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;}
+.tip-bar.ok{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;}
+.tip-bar .tip-icon{flex-shrink:0;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;}
+.tip-bar.warn .tip-icon{background:#fee2e2;color:#991b1b;}
+.tip-bar.info .tip-icon{background:#dbeafe;color:#1e40af;}
+.tip-bar.ok .tip-icon{background:#d1fae5;color:#065f46;}
+.tip-bar .tip-body{flex:1;}
+.tip-bar .tip-title{font-weight:600;margin-bottom:2px;}
+.tip-bar .tip-list{font-size:12px;margin:6px 0 0;padding-left:16px;}
+.tip-bar .tip-list li{margin:2px 0;}
+.tip-bar .tip-close{flex-shrink:0;background:none;border:none;color:inherit;cursor:pointer;font-size:16px;line-height:1;padding:2px 4px;opacity:.6;}
+.tip-bar .tip-close:hover{opacity:1;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="alg-page">
+  <!-- 顶部模型文件检查提示条 -->
+  <div class="tip-bar" id="modelTipBar">
+    <div class="tip-icon" id="tipIcon">!</div>
+    <div class="tip-body">
+      <div class="tip-title" id="tipTitle"></div>
+      <div id="tipText"></div>
+      <ul class="tip-list" id="tipList" style="display:none;"></ul>
+    </div>
+    <button type="button" class="tip-close" onclick="document.getElementById('modelTipBar').classList.remove('show')">&times;</button>
+  </div>
+  <div class="alg-card">
+    <div class="alg-head">
+      <h3><span class="dot"></span>{{ T.nav_small_models|default:'小模型管理' }}</h3>
+      <div class="alg-toolbar">
+        <select id="filterEngine" onchange="onAlgFilterChange()">
+          <option value="">{{ T.sm_all_engines|default:'全部引擎' }}</option>
+          <option value="yolo_pytorch">Yolo-PyTorch</option>
+          <option value="onnxruntime">OnnxRuntime</option>
+          <option value="openvino">OpenVINO</option>
+        </select>
+        <button class="btn" onclick="loadAlgorithms()">{{ T.btn_refresh_symbol|default:'↻ 刷新' }}</button>
+        <button class="btn btn-primary" onclick="openAddModal()">{{ T.sm_add|default:'+ 添加小模型' }}</button>
+      </div>
+    </div>
+
+    <div class="alg-engines" id="engineBar">
+      <span class="lbl">{{ T.sm_engine_avail|default:'引擎可用性' }}:</span>
+      <span style="color:#9ca3af;font-size:12px">{{ T.index_loading|default:'加载中...' }}</span>
+    </div>
+
+    <div class="alg-body">
+      <table class="alg-table" id="algTable">
+        <thead>
+          <tr>
+            <th>{{ T.th_id|default:'ID' }}</th>
+            <th>{{ T.sm_name|default:'小模型名称' }}</th>
+            <th>{{ T.sm_type|default:'模型类型' }} / {{ T.sm_task_type|default:'任务' }}</th>
+            <th>{{ T.sm_engine|default:'推理引擎' }} / {{ T.sm_device|default:'设备' }}</th>
+            <th>{{ T.sm_resolution|default:'分辨率 / 阈值' }}</th>
+            <th>{{ T.sm_status|default:'状态' }}</th>
+            <th>{{ T.col_action|default:'操作' }}</th>
+          </tr>
+        </thead>
+        <tbody id="algBody"></tbody>
+      </table>
+      <div id="algEmpty" class="alg-empty" style="display:none">
+        <span class="ic">○</span><span>{{ T.camera_no_data|default:'暂无数据' }}</span>
+      </div>
+    </div>
+    <div class="card-body" style="padding-top:0">
+      <div class="pagination" id="pagination"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 新增/编辑模态 -->
+<div class="modal-overlay" id="algModal" onclick="if(event.target===this)closeAlgModal()">
+  <div class="modal-box" role="dialog">
+    <div class="modal-head">
+      <h3 id="algModalTitle">{{ T.sm_add|default:'添加小模型' }}</h3>
+      <button type="button" class="modal-close" onclick="closeAlgModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="f_id">
+      <div class="form-row">
+        <label>{{ T.sm_name|default:'小模型名称' }} *</label>
+        <input id="f_name" placeholder="{{ T.sm_name_ph|default:'如：YOLOv8n 行人检测' }}">
+      </div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>{{ T.sm_type|default:'模型类型' }}</label>
+          <select id="f_algorithm_type">
+            <option value="yolo5">YOLOv5</option>
+            <option value="yolo8">YOLOv8</option>
+            <option value="yolo11">YOLOv11</option>
+            <option value="yolo26">YOLO26</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>{{ T.sm_task_type|default:'任务类型' }}</label>
+          <select id="f_task_type">
+            <option value="detect">Detect</option>
+            <option value="segment">Segment</option>
+            <option value="classify">Classify</option>
+            <option value="pose">Pose</option>
+            <option value="obb">OBB</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-grid" style="margin-top:12px;">
+        <div class="form-row">
+          <label>{{ T.sm_engine|default:'推理引擎' }}</label>
+          <select id="f_inference_engine" onchange="onEngineChange()"></select>
+        </div>
+        <div class="form-row">
+          <label>{{ T.sm_device|default:'推理设备' }}</label>
+          <select id="f_device"></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>{{ T.sm_model_file|default:'模型文件' }}</label>
+        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+          <div class="ic">⬆</div>
+          <div class="tip">{{ T.sm_upload_tip|default:'点击或拖拽 .onnx / .pt / .xml 文件到此上传' }}</div>
+          <div class="filename" id="uploadFilename"></div>
+          <div class="upload-progress" id="uploadProgress"><div class="bar"></div></div>
+        </div>
+        <input type="file" id="fileInput" style="display:none" onchange="onFilePicked(event)">
+        <input type="hidden" id="f_model_file">
+        <input type="hidden" id="f_model_file_size" value="0">
+        <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
+          <button type="button" class="btn btn-sm btn-success" onclick="probeModel()">{{ T.sm_probe|default:'探测模型' }}</button>
+          <span id="probeHint" style="font-size:11px;color:#9ca3af;">{{ T.sm_probe_tip|default:'上传后点击探测可自动获取输入尺寸与类别' }}</span>
+        </div>
+        <div class="probe-result" id="probeResult"></div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>{{ T.sm_input_width|default:'输入宽度' }}</label>
+          <input id="f_input_width" type="number" value="640">
+        </div>
+        <div class="form-row">
+          <label>{{ T.sm_input_height|default:'输入高度' }}</label>
+          <input id="f_input_height" type="number" value="640">
+        </div>
+      </div>
+      <div class="form-grid" style="margin-top:12px;">
+        <div class="form-row">
+          <label>{{ T.sm_conf_threshold|default:'置信度阈值' }}</label>
+          <input id="f_conf_threshold" type="number" step="0.05" value="0.4">
+        </div>
+        <div class="form-row">
+          <label>{{ T.sm_iou_threshold|default:'NMS IoU 阈值' }}</label>
+          <input id="f_iou_threshold" type="number" step="0.05" value="0.5">
+        </div>
+      </div>
+      <div class="form-row" style="margin-top:12px;">
+        <label>{{ T.sm_labels|default:'支持类别' }} <span style="font-weight:400;color:#9ca3af;font-size:11px;">({{ T.sm_labels_hint|default:'用英文逗号隔开，支持中文' }})</span></label>
+        <input id="f_labels" placeholder="person,car,bicycle,行人和车辆">
+      </div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>{{ T.sm_state|default:'状态' }}</label>
+          <select id="f_state">
+            <option value="1">{{ T.zone_enabled|default:'启用' }}</option>
+            <option value="0">{{ T.zone_disabled|default:'禁用' }}</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>{{ T.sm_default|default:'设为默认' }}</label>
+          <select id="f_is_default">
+            <option value="0">{{ T.zone_no|default:'否' }}</option>
+            <option value="1">{{ T.zone_yes|default:'是' }}</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn" onclick="closeAlgModal()">{{ T.cancel|default:'取消' }}</button>
+      <button type="button" class="btn btn-primary" onclick="submitAlgorithm()">{{ T.sm_save|default:'保存小模型' }}</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var g_engines = [];
+var g_currentPage = 1;
+var g_pageSize = 10;
+
+// 进入页面时检查所有小模型文件是否存在，同时列出就绪与缺失模型，便于排查
+function checkModels(){
+  Api.get('/algorithm/openCheckModels').then(function(res){
+    var bar = document.getElementById('modelTipBar');
+    if(!bar) return;
+    if(res.code!==1000){ return; }
+    var d = res.data || {};
+    var missing = d.missing || [];
+    var okList = d.ok_list || [];
+    var total = d.total || 0;
+    var ok = d.ok_count || 0;
+    var fail = missing.length;
+    if(total===0){
+      bar.className = 'tip-bar show info';
+      document.getElementById('tipIcon').textContent = 'i';
+      document.getElementById('tipTitle').textContent = '暂无小模型';
+      document.getElementById('tipText').textContent = '当前没有任何小模型，请点击右上角「+ 添加小模型」并上传模型文件。';
+      document.getElementById('tipList').style.display = 'none';
+      return;
+    }
+    // 统计文案：明确说明成功多少、失败多少
+    var statText = '共 '+total+' 个已启用小模型：成功 '+ok+' 个，失败 '+fail+' 个。';
+    var list = document.getElementById('tipList');
+    var listHtml = '';
+    // 成功列表（绿色）
+    if(okList.length){
+      listHtml += '<li style="color:#065f46;"><b>✓ 成功 ('+okList.length+')</b>';
+      listHtml += '<ul style="margin:4px 0 6px;padding-left:16px;">';
+      okList.forEach(function(x){
+        listHtml += '<li><b>'+escapeHtml(x.name)+'</b> — '+(x.model_file?('文件 '+escapeHtml(x.model_file)+' 就绪'):'未配置模型文件')+(x.engine?(' · 引擎 '+escapeHtml(x.engine)):'')+'</li>';
+      });
+      listHtml += '</ul></li>';
+    }
+    // 失败列表（红色）
+    if(missing.length){
+      listHtml += '<li style="color:#991b1b;"><b>✗ 失败 ('+missing.length+')</b>';
+      listHtml += '<ul style="margin:4px 0 6px;padding-left:16px;">';
+      missing.forEach(function(x){
+        listHtml += '<li><b>'+escapeHtml(x.name)+'</b> — '+(x.model_file?('文件 '+escapeHtml(x.model_file)+' 不存在'):'未配置模型文件')+(x.engine?(' · 引擎 '+escapeHtml(x.engine)):'')+'</li>';
+      });
+      listHtml += '</ul></li>';
+    }
+    if(missing.length===0){
+      // 全部成功
+      bar.className = 'tip-bar show ok';
+      document.getElementById('tipIcon').textContent = '✓';
+      document.getElementById('tipTitle').textContent = '模型文件检查通过';
+      document.getElementById('tipText').textContent = statText + '全部小模型的模型文件均已就绪。';
+    } else {
+      // 存在失败
+      bar.className = 'tip-bar show warn';
+      document.getElementById('tipIcon').textContent = '!';
+      document.getElementById('tipTitle').textContent = '检测到 '+fail+' 个小模型文件缺失，相关算法将无法正常分析';
+      document.getElementById('tipText').textContent = statText + '缺失模型的小模型在分配给业务算法后不会产生检测结果，请在本页编辑对应小模型、上传或修改模型文件路径。';
+      showToast('检测到 '+fail+' 个小模型文件缺失，算法可能无法正常分析', 'error');
+    }
+    if(listHtml){
+      list.style.display = 'block';
+      list.innerHTML = listHtml;
+    } else {
+      list.style.display = 'none';
+    }
+  });
+}
+
+function onAlgFilterChange(){
+  g_currentPage = 1;
+  loadAlgorithms();
+}
+
+function loadEngines(){
+  Api.get('/smallmodel/openEngines').then(function(res){
+    if(res && res.code===1000){
+      g_engines = res.data || [];
+      renderEngineBar();
+      renderEngineSelect();
+    }
+  });
+}
+
+function renderEngineBar(){
+  var bar = document.getElementById('engineBar');
+  var html = '<span class="lbl">'+_t('sm_engine_avail','引擎可用性')+':</span>';
+  if(!g_engines.length){
+    html += '<span style="color:#9ca3af;font-size:12px">'+_t('sm_no_engine','未注册任何引擎')+'</span>';
+  } else {
+    g_engines.forEach(function(e){
+      var cls = e.available ? 'on' : 'off';
+      var ver = e.version ? '<span class="ver">v'+escapeHtml(e.version)+'</span>' : '';
+      var name = e.name==='yolo_pytorch'?'Yolo-PyTorch':(e.name==='onnxruntime'?'OnnxRuntime':(e.name==='openvino'?'OpenVINO':e.name));
+      var extra = '';
+      if(e.name==='yolo_pytorch' && e.ultralytics_version) extra = ' <span class="ver">ultralytics '+escapeHtml(e.ultralytics_version)+'</span>';
+      if((e.name==='yolo_pytorch' || e.name==='onnxruntime') && e.cuda_available===true) extra += ' <span class="ver">CUDA ✓</span>';
+      html += '<span class="engine-chip '+cls+'"><span class="ic"></span>'+escapeHtml(name)+(e.available?'':' · '+_t('engine_not_installed','未安装'))+ver+extra+'</span>';
+    });
+  }
+  bar.innerHTML = html;
+}
+
+function renderEngineSelect(){
+  var sel = document.getElementById('f_inference_engine');
+  if(!sel) return;
+  var cur = sel.value;
+  sel.innerHTML = '';
+  g_engines.forEach(function(e){
+    var o = document.createElement('option');
+    o.value = e.name;
+    var disp = e.name==='yolo_pytorch'?'Yolo-PyTorch':(e.name==='onnxruntime'?'OnnxRuntime':(e.name==='openvino'?'OpenVINO':e.name));
+    o.textContent = disp + (e.available ? '' : ' ('+_t('engine_not_installed','未安装')+')');
+    if(!e.available) o.disabled = true;
+    sel.appendChild(o);
+  });
+  if(cur && Array.from(sel.options).some(function(o){return o.value===cur;})) sel.value = cur;
+  onEngineChange();
+}
+
+function onEngineChange(){
+  var eng = document.getElementById('f_inference_engine').value;
+  var devSel = document.getElementById('f_device');
+  if(!devSel) return;
+  var cur = devSel.value;
+  // 找到该引擎的设备选项
+  var opts = [];
+  for(var i=0;i<g_engines.length;i++){
+    if(g_engines[i].name===eng){ opts = g_engines[i].device_options || []; break; }
+  }
+  if(!opts.length){
+    opts = [{value:'cpu', label:'CPU'}, {value:'cuda', label:'CUDA'}];
+  }
+  devSel.innerHTML = '';
+  opts.forEach(function(d){
+    var o = document.createElement('option');
+    o.value = d.value; o.textContent = d.label;
+    // CUDA 不可用时给提示
+    if(d.value==='cuda' || d.value==='gpu'){
+      var engInfo = g_engines.find(function(e){return e.name===eng;});
+      if(engInfo && engInfo.available && engInfo.cuda_available===false){
+        o.textContent += ' ('+_t('device_unavailable','当前不可用')+')';
+      }
+    }
+    devSel.appendChild(o);
+  });
+  if(cur && Array.from(devSel.options).some(function(o){return o.value===cur;})) devSel.value = cur;
+}
+
+function renderEmpty(show){
+  document.getElementById('algEmpty').style.display = show?'flex':'none';
+  document.getElementById('algTable').style.display = show?'none':'';
+}
+
+function loadAlgorithms(page){
+  if(page) g_currentPage = page;
+  var engine = document.getElementById('filterEngine').value;
+  var params = { p: g_currentPage, ps: g_pageSize };
+  if(engine) params.engine = engine;
+  Api.get('/smallmodel/openIndex', params).then(function(res){
+    var body = document.getElementById('algBody');
+    body.innerHTML = '';
+    var pageData = (res && res.pageData) ? res.pageData : {};
+    if(!res || res.code!==1000 || !(res.data||[]).length){
+      renderEmpty(true);
+      renderPagination(document.getElementById('pagination'), pageData, loadAlgorithms);
+      return;
+    }
+    renderEmpty(false);
+    res.data.forEach(function(a){
+      var tr = document.createElement('tr');
+      var engineName = a.inference_engine==='yolo_pytorch'?'Yolo-PyTorch':(a.inference_engine==='onnxruntime'?'OnnxRuntime':(a.inference_engine==='openvino'?'OpenVINO':a.inference_engine));
+      var typeDisp = ({yolo5:'YOLOv5',yolo8:'YOLOv8',yolo11:'YOLOv11',yolo26:'YOLO26'}[a.algorithm_type]) || a.algorithm_type;
+      var taskDisp = a.task_type?(a.task_type.charAt(0).toUpperCase()+a.task_type.slice(1)):'-';
+      var deviceDisp = ({cpu:'CPU',cuda:'CUDA',gpu:'GPU'}[a.device]) || (a.device||'-');
+      var statusHtml = '';
+      if(a.is_default===1) statusHtml += '<span class="tag tag-default">'+_t('sm_default','默认')+'</span> ';
+      statusHtml += (a.state===1?'<span class="tag tag-on">'+_t('zone_enabled','启用')+'</span>':'<span class="tag tag-off">'+_t('zone_disabled','禁用')+'</span>');
+      tr.innerHTML = '<td class="alg-id-cell">'+a.id+'</td>'
+        +'<td class="alg-name-cell">'+escapeHtml(a.name)+'</td>'
+        +'<td><div class="cell-stack"><span class="cell-main">'+escapeHtml(typeDisp)+'</span><span class="cell-sub">'+escapeHtml(taskDisp)+'</span></div></td>'
+        +'<td><div class="cell-stack"><span class="cell-main">'+engineName+'</span><span class="cell-sub">'+escapeHtml(deviceDisp)+'</span></div></td>'
+        +'<td><div class="cell-stack"><span class="cell-main">'+a.input_width+'×'+a.input_height+'</span><span class="cell-sub">conf '+a.conf_threshold.toFixed(2)+'</span></div></td>'
+        +'<td>'+statusHtml+'</td>'
+        +'<td><div class="alg-actions">'
+          +'<button class="btn" onclick="editAlgorithm('+a.id+')">'+_t('btn_edit','编辑')+'</button>'
+          +'<button class="btn" onclick="setActive('+a.id+')"'+(a.is_default===1?' disabled title="'+_t('sm_already_default','已是默认')+'"':'')+'>'+_t('sm_set_default_btn','设默认')+'</button>'
+          +'<button class="btn btn-success" onclick="goTestAlgorithm('+a.id+')">'+_t('sm_test_btn','测试')+'</button>'
+          +'<button class="btn" onclick="delAlgorithm('+a.id+')">'+_t('btn_del','删除')+'</button>'
+        +'</div></td>';
+      body.appendChild(tr);
+    });
+    renderPagination(document.getElementById('pagination'), pageData, loadAlgorithms);
+  });
+}
+
+var g_algoCache = [];
+function editAlgorithm(id){
+  Api.get('/smallmodel/openIndex').then(function(res){
+    g_algoCache = res.data || [];
+    var a = g_algoCache.find(function(x){return x.id===id;});
+    if(!a) return;
+    document.getElementById('algModalTitle').textContent = _t('sm_edit','编辑小模型');
+    document.getElementById('f_id').value = a.id;
+    document.getElementById('f_name').value = a.name;
+    document.getElementById('f_algorithm_type').value = a.algorithm_type;
+    document.getElementById('f_task_type').value = a.task_type || 'detect';
+    document.getElementById('f_inference_engine').value = a.inference_engine;
+    onEngineChange();
+    document.getElementById('f_device').value = a.device || 'cpu';
+    document.getElementById('f_model_file').value = a.model_file;
+    document.getElementById('f_model_file_size').value = a.model_file_size;
+    document.getElementById('uploadFilename').textContent = a.model_file ? ('📦 '+a.model_file+' ('+formatSize(a.model_file_size)+')') : '';
+    document.getElementById('f_input_width').value = a.input_width;
+    document.getElementById('f_input_height').value = a.input_height;
+    document.getElementById('f_conf_threshold').value = a.conf_threshold;
+    document.getElementById('f_iou_threshold').value = a.iou_threshold;
+    var labels = a.labels || [];
+    document.getElementById('f_labels').value = Array.isArray(labels) ? labels.join(',') : '';
+    document.getElementById('f_state').value = String(a.state);
+    document.getElementById('f_is_default').value = String(a.is_default);
+    document.getElementById('probeResult').classList.remove('show');
+    document.getElementById('algModal').classList.add('show');
+  });
+}
+
+function openAddModal(){
+  document.getElementById('algModalTitle').textContent = _t('sm_add','添加小模型');
+  document.getElementById('f_id').value = '';
+  document.getElementById('f_name').value = '';
+  document.getElementById('f_algorithm_type').value = 'yolo8';
+  document.getElementById('f_task_type').value = 'detect';
+  if(g_engines.length){
+    // 优先选 yolo_pytorch（主引擎），其次首个可用
+    var py = g_engines.find(function(e){return e.name==='yolo_pytorch' && e.available;});
+    var firstAvailable = py || g_engines.find(function(e){return e.available;});
+    document.getElementById('f_inference_engine').value = firstAvailable ? firstAvailable.name : (g_engines[0] && g_engines[0].name);
+  }
+  onEngineChange();
+  document.getElementById('f_model_file').value = '';
+  document.getElementById('f_model_file_size').value = '0';
+  document.getElementById('uploadFilename').textContent = '';
+  document.getElementById('f_input_width').value = 640;
+  document.getElementById('f_input_height').value = 640;
+  document.getElementById('f_conf_threshold').value = 0.4;
+  document.getElementById('f_iou_threshold').value = 0.5;
+  document.getElementById('f_labels').value = '';
+  document.getElementById('f_state').value = '1';
+  document.getElementById('f_is_default').value = '0';
+  document.getElementById('probeResult').classList.remove('show');
+  document.getElementById('algModal').classList.add('show');
+}
+function closeAlgModal(){ document.getElementById('algModal').classList.remove('show'); }
+
+function formatSize(bytes){
+  if(!bytes) return '0 B';
+  if(bytes < 1024) return bytes+' B';
+  if(bytes < 1024*1024) return (bytes/1024).toFixed(1)+' KB';
+  return (bytes/1024/1024).toFixed(2)+' MB';
+}
+
+function onFilePicked(e){
+  var f = e.target.files[0];
+  if(!f) return;
+  uploadFile(f);
+}
+
+// 拖拽上传
+(function(){
+  document.addEventListener('DOMContentLoaded', function(){
+    var zone = document.getElementById('uploadZone');
+    if(!zone) return;
+    zone.addEventListener('dragover', function(e){ e.preventDefault(); zone.classList.add('drag'); });
+    zone.addEventListener('dragleave', function(){ zone.classList.remove('drag'); });
+    zone.addEventListener('drop', function(e){
+      e.preventDefault(); zone.classList.remove('drag');
+      var f = e.dataTransfer.files[0];
+      if(f) uploadFile(f);
+    });
+  });
+})();
+
+function uploadFile(file){
+  var fd = new FormData();
+  fd.append('file', file);
+  var prog = document.getElementById('uploadProgress');
+  var bar = prog.querySelector('.bar');
+  prog.classList.add('show'); bar.style.width = '0%';
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', '/smallmodel/openUploadModel');
+  // 补 CSRF 头（与 Api 封装保持一致，避免 403）
+  var _ct = (typeof getCsrfToken === 'function') ? getCsrfToken() : '';
+  if(_ct){ xhr.setRequestHeader('X-CSRFToken', _ct); }
+  xhr.upload.onprogress = function(e){
+    if(e.lengthComputable){ var p = Math.round(e.loaded/e.total*100); bar.style.width = p+'%'; }
+  };
+  xhr.onload = function(){
+    prog.classList.remove('show');
+    try{
+      var res = JSON.parse(xhr.responseText);
+      if(res.code===1000 && res.data){
+        document.getElementById('f_model_file').value = res.data.model_file;
+        document.getElementById('f_model_file_size').value = res.data.model_file_size;
+        document.getElementById('uploadFilename').textContent = '📦 '+escapeHtml(res.data.filename)+' ('+formatSize(res.data.model_file_size)+')';
+        showToast(_t('sm_upload_ok','上传成功'),'success');
+      } else {
+        showToast(res.msg||_t('sm_upload_fail','上传失败'),'error');
+      }
+    } catch(err){
+      showToast(_t('sm_upload_fail','上传失败')+': '+err.message,'error');
+    }
+  };
+  xhr.onerror = function(){ prog.classList.remove('show'); showToast(_t('sm_upload_fail','上传失败'),'error'); };
+  xhr.send(fd);
+}
+
+function probeModel(){
+  var modelFile = document.getElementById('f_model_file').value;
+  var engine = document.getElementById('f_inference_engine').value;
+  if(!modelFile){ showToast(_t('sm_no_model_file','请先上传模型文件'),'warning'); return; }
+  var box = document.getElementById('probeResult');
+  box.classList.add('show');
+  box.innerHTML = '<div class="row"><span>'+_t('index_loading','加载中...')+'</span></div>';
+  Api.post('/smallmodel/openProbe', {model_file: modelFile, engine: engine}).then(function(res){
+    if(res && res.code===1000 && res.data){
+      var d = res.data;
+      var html = '';
+      if(d.error) html += '<div class="row err">'+escapeHtml(d.error)+'</div>';
+      html += '<div class="row"><span>'+_t('sm_engine','推理引擎')+'</span><b>'+escapeHtml(d.engine||'')+(d.available?' ✓':' ✗')+'</b></div>';
+      if(d.version) html += '<div class="row"><span>'+_t('sm_version','版本')+'</span><b>'+escapeHtml(d.version)+'</b></div>';
+      if(d.input_shape) html += '<div class="row"><span>'+_t('sm_input_shape','输入 shape')+'</span><b>'+escapeHtml(JSON.stringify(d.input_shape))+'</b></div>';
+      if(d.output_shape) html += '<div class="row"><span>'+_t('sm_output_shape','输出 shape')+'</span><b>'+escapeHtml(JSON.stringify(d.output_shape))+'</b></div>';
+      if(d.input_size_inferred){
+        html += '<div class="row"><span>'+_t('sm_inferred_size','推断分辨率')+'</span><b>'+d.input_size_inferred[0]+'×'+d.input_size_inferred[1]+'</b></div>';
+        document.getElementById('f_input_width').value = d.input_size_inferred[0];
+        document.getElementById('f_input_height').value = d.input_size_inferred[1];
+      }
+      if(d.labels && d.labels.length){
+        html += '<div class="row"><span>'+_t('sm_labels_count','类别数')+'</span><b>'+d.labels.length+'</b></div>';
+        document.getElementById('f_labels').value = d.labels.join('\n');
+      }
+      if(d.model_file_size) html += '<div class="row"><span>'+_t('sm_file_size','文件大小')+'</span><b>'+formatSize(d.model_file_size)+'</b></div>';
+      box.innerHTML = html;
+    } else {
+      box.innerHTML = '<div class="row err">'+escapeHtml(res?res.msg:_t('msg_unknown_error','失败'))+'</div>';
+    }
+  });
+}
+
+function submitAlgorithm(){
+  var id = document.getElementById('f_id').value;
+  var name = document.getElementById('f_name').value.trim();
+  if(!name){ showToast(_t('sm_name_required','请填写小模型名称'),'warning'); return; }
+  var labelsText = document.getElementById('f_labels').value;
+  var labelsArr = labelsText.split(',').map(function(s){return s.trim();}).filter(function(s){return s;});
+  var payload = {
+    name: name,
+    algorithm_type: document.getElementById('f_algorithm_type').value,
+    task_type: document.getElementById('f_task_type').value,
+    inference_engine: document.getElementById('f_inference_engine').value,
+    device: document.getElementById('f_device').value,
+    model_file: document.getElementById('f_model_file').value.trim(),
+    model_file_size: parseInt(document.getElementById('f_model_file_size').value, 10) || 0,
+    input_width: parseInt(document.getElementById('f_input_width').value, 10) || 640,
+    input_height: parseInt(document.getElementById('f_input_height').value, 10) || 640,
+    conf_threshold: parseFloat(document.getElementById('f_conf_threshold').value) || 0.4,
+    iou_threshold: parseFloat(document.getElementById('f_iou_threshold').value) || 0.5,
+    labels: labelsArr,
+    state: parseInt(document.getElementById('f_state').value, 10),
+    is_default: parseInt(document.getElementById('f_is_default').value, 10),
+  };
+  var url = id ? '/smallmodel/openEdit' : '/smallmodel/openAdd';
+  if(id) payload.id = parseInt(id, 10);
+  Api.post(url, payload).then(function(res){
+    if(!res){ showToast(_t('msg_unknown_error','失败'),'error'); return; }
+    showToast(res.msg || (res.code===1000?_t('msg_success','成功'):_t('msg_unknown_error','失败')), res.code===1000?'success':'error');
+    if(res.code===1000){ closeAlgModal(); loadAlgorithms(); }
+  });
+}
+
+function delAlgorithm(id){
+  confirmDialog(_t('sm_del_confirm','确认删除该小模型？'), function(){
+    Api.post('/smallmodel/openDel', {id: id}).then(function(res){
+      showToast(res.msg, res.code===1000?'success':'error');
+      loadAlgorithms();
+    });
+  });
+}
+
+function setActive(id){
+  Api.post('/smallmodel/openSetActive', {id: id}).then(function(res){
+    showToast(res.msg, res.code===1000?'success':'error');
+    loadAlgorithms();
+  });
+}
+
+function goTestAlgorithm(id){
+  window.location.href = '/smallmodel/test?id=' + encodeURIComponent(id);
+}
+
+document.addEventListener('keydown', function(e){
+  if(e.key==='Escape'){
+    if(document.getElementById('algModal').classList.contains('show')) closeAlgModal();
+  }
+});
+
+loadEngines();
+loadAlgorithms();
+checkModels();
+</script>
+{% endblock %}

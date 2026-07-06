@@ -1,0 +1,255 @@
+<!--
+作者：北小菜
+官网：https://www.yuturuishi.com
+微信：bilibili_bxc
+哔哩哔哩主页：https://space.bilibili.com/487906612
+gitee地址：https://gitee.com/Vanishi/rebucca
+github地址：https://github.com/beixiaocai/rebucca
+-->
+
+﻿{% extends "app/base.html" %}
+{% load static %}
+
+{% block title %}用户管理 - {{ settings.name|default:"Rebucca" }}{% endblock %}
+{% block nav_user %}active{% endblock %}
+{% block page_title %}用户管理{% endblock %}
+
+{% block content %}
+<div class="user-page">
+<div class="page-head">
+    <div class="page-head-left">
+        <div>
+            <div class="page-head-title">用户管理</div>
+            <div class="page-head-sub">管理后台登录账号，所有账号权限相同</div>
+        </div>
+    </div>
+    <div class="page-head-right">
+        <button class="btn" onclick="loadUserList()">↻ 刷新</button>
+        <button class="btn btn-primary" onclick="openAddModal()">+ 添加用户</button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width:50px">ID</th>
+                    <th>{{ T.th_username|default:'用户名' }}</th>
+                    <th>{{ T.th_email|default:'邮箱' }}</th>
+                    <th>{{ T.th_role|default:'角色' }}</th>
+                    <th>{{ T.th_status|default:'状态' }}</th>
+                    <th>{{ T.th_join_time|default:'加入时间' }}</th>
+                    <th>{{ T.th_last_login|default:'上次登录' }}</th>
+                    <th style="width:140px">{{ T.th_action|default:'操作' }}</th>
+                </tr>
+            </thead>
+            <tbody id="userTableBody">
+                <tr><td colspan="8"><div class="empty-state"><div class="empty-icon">⟳</div><div class="empty-text">{{ T.loading|default:'加载中...' }}</div></div></td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="card-body" style="padding-top:0">
+        <div class="pagination" id="pagination"></div>
+    </div>
+</div>
+
+<!-- 添加/编辑弹窗 -->
+<div class="modal-overlay" id="userModal">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="modal-title" id="userModalTitle">{{ T.modal_add_user|default:'添加用户' }}</span>
+            <button class="modal-close" onclick="closeModal('userModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label">用户名 <span class="required">*</span></label>
+                <input type="text" class="form-input" id="u_username" placeholder="请输入用户名">
+            </div>
+            <div class="form-group">
+                <label class="form-label">{{ T.label_email|default:'邮箱' }} <span class="required">*</span></label>
+                <input type="email" class="form-input" id="u_email" placeholder="{{ T.placeholder_email|default:'请输入邮箱' }}">
+            </div>
+            <div class="form-group" id="u_password_group">
+                <label class="form-label">{{ T.label_password|default:'密码' }} <span class="required">*</span></label>
+                <input type="password" class="form-input" id="u_password" placeholder="{{ T.placeholder_password|default:'6-16位密码' }}">
+                <div class="form-hint">{{ T.hint_password_length|default:'密码长度须为6-16位' }}</div>
+            </div>
+            <div class="form-group" id="u_new_password_group" style="display:none">
+                <label class="form-label">新密码</label>
+                <input type="password" class="form-input" id="u_new_password" placeholder="不修改请留空">
+            </div>
+            <div class="form-group" id="u_re_password_group" style="display:none">
+                <label class="form-label">{{ T.label_confirm_password|default:'确认新密码' }}</label>
+                <input type="password" class="form-input" id="u_re_password" placeholder="{{ T.placeholder_reenter_password|default:'再次输入新密码' }}">
+            </div>
+            <div class="form-group">
+                <label class="form-label">{{ T.th_status|default:'状态' }}</label>
+                <select class="form-select" id="u_is_active">
+                    <option value="1">{{ T.status_normal|default:'正常' }}</option>
+                    <option value="0">{{ T.status_disabled|default:'禁用' }}</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn" onclick="closeModal('userModal')">{{ T.btn_cancel|default:'取消' }}</button>
+            <button class="btn btn-primary" onclick="submitUserForm()">{{ T.btn_submit|default:'提交' }}</button>
+        </div>
+    </div>
+</div>
+
+</div><!-- /.user-page -->
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var currentPage = 1;
+var editMode = 'add';
+var editUserId = 0;
+
+function loadUserList(page) {
+    if (page) currentPage = page;
+    var tbody = document.getElementById('userTableBody');
+    showLoading(tbody);
+
+    Api.get('/user/openIndex', { p: currentPage, ps: 10 }).then(function(res) {
+        if (res.code === 1000) {
+            renderTable(res.data || []);
+            renderPagination(document.getElementById('pagination'), res.pageData, loadUserList);
+        } else {
+            showEmpty(tbody, res.msg);
+        }
+    });
+}
+
+function renderTable(data) {
+    var tbody = document.getElementById('userTableBody');
+    if (!data || data.length === 0) {
+        showEmpty(tbody, _t('no_user_data', '暂无用户数据'));
+        return;
+    }
+
+    var html = '';
+    data.forEach(function(d) {
+        var id = d.id;
+        var username = escapeHtml(d.username || '');
+        var email = escapeHtml(d.email || '');
+        var role = d.is_superuser == 1
+            ? '<span class="badge badge-info">' + _t('role_super_admin', '超级管理员') + '</span>'
+            : '<span class="badge badge-neutral">' + _t('role_normal_user', '普通用户') + '</span>';
+        var status = d.is_active == 1
+            ? '<span class="badge badge-success">' + _t('status_normal', '正常') + '</span>'
+            : '<span class="badge badge-danger">' + _t('status_disabled', '禁用') + '</span>';
+        var joinTime = d.date_joined || '--';
+        var lastLogin = d.last_login || '--';
+
+        html += '<tr>' +
+            '<td>' + id + '</td>' +
+            '<td>' + username + '</td>' +
+            '<td>' + email + '</td>' +
+            '<td>' + role + '</td>' +
+            '<td>' + status + '</td>' +
+            '<td style="font-size:12px;color:var(--c-text-tertiary)">' + joinTime + '</td>' +
+            '<td style="font-size:12px;color:var(--c-text-tertiary)">' + lastLogin + '</td>' +
+            '<td><div style="display:flex;gap:4px">' +
+            '<button class="btn btn-sm" onclick="openEditModal(' + id + ',\'' + username + '\',\'' + email + '\',' + d.is_active + ')">' + _t('btn_edit', '编辑') + '</button>' +
+            '<button class="btn btn-sm btn-danger" onclick="deleteUser(' + id + ',\'' + username + '\')">' + _t('btn_delete', '删除') + '</button>' +
+            '</div></td>' +
+            '</tr>';
+    });
+    tbody.innerHTML = html;
+}
+
+function openAddModal() {
+    editMode = 'add';
+    editUserId = 0;
+    document.getElementById('userModalTitle').textContent = _t('modal_add_user', '添加用户');
+    document.getElementById('u_username').value = '';
+    document.getElementById('u_email').value = '';
+    document.getElementById('u_password').value = '';
+    document.getElementById('u_new_password').value = '';
+    document.getElementById('u_re_password').value = '';
+    document.getElementById('u_is_active').value = '1';
+    document.getElementById('u_password_group').style.display = '';
+    document.getElementById('u_new_password_group').style.display = 'none';
+    document.getElementById('u_re_password_group').style.display = 'none';
+    openModal('userModal');
+}
+
+function openEditModal(id, username, email, isActive) {
+    editMode = 'edit';
+    editUserId = id;
+    document.getElementById('userModalTitle').textContent = _t('modal_edit_user', '编辑用户');
+    document.getElementById('u_username').value = username;
+    document.getElementById('u_email').value = email;
+    document.getElementById('u_password').value = '';
+    document.getElementById('u_new_password').value = '';
+    document.getElementById('u_re_password').value = '';
+    document.getElementById('u_is_active').value = isActive;
+    document.getElementById('u_password_group').style.display = 'none';
+    document.getElementById('u_new_password_group').style.display = '';
+    document.getElementById('u_re_password_group').style.display = '';
+    openModal('userModal');
+}
+
+function submitUserForm() {
+    var username = document.getElementById('u_username').value.trim();
+    var email = document.getElementById('u_email').value.trim();
+
+    if (!username) { showToast(_t('toast_enter_username', '请输入用户名'), 'warning'); return; }
+    if (!email) { showToast(_t('toast_enter_email', '请输入邮箱'), 'warning'); return; }
+
+    var data = {
+        username: username,
+        email: email,
+        is_active: parseInt(document.getElementById('u_is_active').value)
+    };
+
+    if (editMode === 'add') {
+        var password = document.getElementById('u_password').value.trim();
+        if (!password) { showToast(_t('toast_enter_password', '请输入密码'), 'warning'); return; }
+        if (password.length < 6 || password.length > 16) { showToast(_t('toast_password_length', '密码长度须为6-16位'), 'warning'); return; }
+        data.password = password;
+
+        Api.post('/user/openAdd', data).then(function(res) {
+            showToast(res.msg, res.code === 1000 ? 'success' : 'error');
+            if (res.code === 1000) {
+                closeModal('userModal');
+                loadUserList();
+            }
+        });
+    } else {
+        var newPwd = document.getElementById('u_new_password').value.trim();
+        var rePwd = document.getElementById('u_re_password').value.trim();
+        if (newPwd || rePwd) {
+            if (!newPwd) { showToast(_t('toast_enter_new_password', '请输入新密码'), 'warning'); return; }
+            if (newPwd !== rePwd) { showToast(_t('toast_password_mismatch', '两次输入的密码不一致'), 'warning'); return; }
+            if (newPwd.length < 6 || newPwd.length > 16) { showToast(_t('toast_password_length', '密码长度须为6-16位'), 'warning'); return; }
+            data.new_password = newPwd;
+            data.re_password = rePwd;
+        }
+        data.id = editUserId;
+
+        Api.post('/user/openEdit', data).then(function(res) {
+            showToast(res.msg, res.code === 1000 ? 'success' : 'error');
+            if (res.code === 1000) {
+                closeModal('userModal');
+                loadUserList();
+            }
+        });
+    }
+}
+
+function deleteUser(id, username) {
+    confirmDialog(_t('confirm_delete_user', '确认删除用户') + ' "' + username + '" 吗？', function() {
+        Api.post('/user/openDel', { id: id }).then(function(res) {
+            showToast(res.msg, res.code === 1000 ? 'success' : 'error');
+            if (res.code === 1000) loadUserList();
+        });
+    });
+}
+
+loadUserList(1);
+</script>
+{% endblock %}

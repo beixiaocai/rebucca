@@ -1,0 +1,25 @@
+# rebucca · Linux 直接依赖（不含二级传递库）
+# 安装: pip install -r requirements-linux.txt
+
+Django==5.0.4
+psutil==5.9.1
+requests==2.28.2
+pyinstaller==6.11.1
+xlrd==1.2.0
+openpyxl==3.1.2
+onvif_zeep==0.2.12
+pillow==9.5.0
+cryptography==46.0.4
+
+# 视频分析
+opencv-python==4.10.0.84
+numpy==1.26.4
+onnxruntime==1.19.2
+ultralytics>=8.0.0
+torch>=2.0.0
+
+# 大模型（OpenAI 兼容 API）
+openai>=2.0.0
+
+# OpenVINO 推理引擎（小模型 inference_engine=openvino）
+openvino>=2024.0.0

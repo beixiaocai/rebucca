@@ -1,0 +1,383 @@
+<!--
+作者：北小菜
+官网：https://www.yuturuishi.com
+微信：bilibili_bxc
+哔哩哔哩主页：https://space.bilibili.com/487906612
+gitee地址：https://gitee.com/Vanishi/rebucca
+github地址：https://github.com/beixiaocai/rebucca
+-->
+
+﻿{% extends "app/base.html" %}
+{% load static %}
+
+{% block title %}{{ T.page_online_preview|default:'在线预览' }} - {{ settings.name|default:"Rebucca" }}{% endblock %}
+{% block nav_online %}active{% endblock %}
+{% block page_title %}{{ T.page_online_preview|default:'在线预览' }}{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ========== 网格 ========== */
+.online-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+    padding-bottom: 20px;
+}
+
+/* ========== 卡片 ========== */
+.online-card {
+    background: #fff;
+    border: 1px solid var(--c-border-light, #eef2f5);
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow .2s, border-color .2s;
+}
+.online-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,.08);
+    border-color: #d0d7de;
+}
+
+/* ========== 封面区 ========== */
+.online-cover {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #1a1a2e;
+    overflow: hidden;
+    cursor: pointer;
+}
+.online-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.online-cover .cover-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,.35);
+    font-size: 24px;
+}
+.online-cover .cover-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity .2s;
+}
+.online-cover:hover .cover-overlay { opacity: 1; }
+.online-cover .cover-overlay .play-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(22,159,133,.92);
+    color: #fff;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,.3);
+}
+.online-cover .cover-status {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+}
+.online-cover .cover-status .badge {
+    padding: 2px 8px;
+    font-size: 11px;
+    border-radius: 3px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(22,163,74,.85);
+    color: #fff;
+    backdrop-filter: blur(2px);
+}
+.online-cover .cover-status .status-dot {
+    width: 6px; height: 6px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 4px #fff;
+}
+
+/* ========== 信息区（紧凑） ========== */
+.online-info {
+    padding: 8px 10px 4px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.online-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1f2937;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+}
+.online-id {
+    font-size: 11px;
+    color: #9ca3af;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: 'Consolas', 'Courier New', monospace;
+    line-height: 1.3;
+}
+.online-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px 10px;
+    padding: 4px 0 2px;
+    border-top: 1px dashed #eef2f5;
+}
+.online-field {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    line-height: 1.4;
+}
+.online-field .f-label {
+    font-size: 10px;
+    color: #9ca3af;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.online-field .f-value {
+    font-size: 11px;
+    color: #4b5563;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+    min-width: 0;
+}
+.online-field .f-value.mono {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 10.5px;
+}
+.online-url {
+    font-size: 10.5px;
+    color: #4b5563;
+    padding: 3px 0 0;
+    border-top: 1px dashed #eef2f5;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    line-height: 1.3;
+}
+.online-url .u-label { color: #9ca3af; flex-shrink: 0; font-size: 10px; }
+.online-url .u-value {
+    font-family: 'Consolas', 'Courier New', monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+}
+
+/* ========== 加载中 ========== */
+.online-loading {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    color: #9ca3af;
+    font-size: 13px;
+    gap: 8px;
+}
+.online-loading .spin {
+    width: 14px; height: 14px;
+    border: 2px solid #e5e7eb;
+    border-top-color: #169F85;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ========== 顶部工具栏 ========== */
+.online-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+.online-toolbar .search-box {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #fff;
+    border: 1px solid var(--c-border, #dcdfe6);
+    border-radius: 4px;
+    padding: 5px 10px;
+    flex: 1;
+    max-width: 240px;
+    height: 30px;
+    box-sizing: border-box;
+}
+.online-toolbar .search-box input {
+    border: none;
+    outline: none;
+    font-size: 12px;
+    color: #374151;
+    background: transparent;
+    flex: 1;
+    min-width: 0;
+}
+.online-toolbar .search-box input::placeholder { color: #9ca3af; }
+.online-toolbar .search-box .search-icon { color: #9ca3af; font-size: 12px; }
+
+.online-toolbar .stat-pills {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+}
+.online-toolbar .stat-pill {
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    background: #f3f4f6;
+    color: #6b7280;
+}
+.online-toolbar .stat-pill .pill-num { color: #169F85; font-weight: 600; margin-left: 2px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div class="page-head-left">
+        <div>
+            <div class="page-head-title">{{ T.page_online_preview|default:'在线预览' }}</div>
+            <div class="page-head-sub">{{ T.online_subtitle|default:'实时查看所有在线视频流设备' }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="online-toolbar">
+    <div class="search-box">
+        <span class="search-icon">⌕</span>
+        <input type="search" id="searchInput" name="searchInput" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" placeholder="{{ T.placeholder_search_device|default:'搜索设备名称...' }}" oninput="filterCards()">
+    </div>
+    <button class="btn" onclick="loadOnlineList()">{{ T.btn_refresh|default:'刷新' }}</button>
+    <div class="stat-pills">
+        <span class="stat-pill">{{ T.online_count|default:'在线' }}<span class="pill-num" id="onlineCount">--</span></span>
+    </div>
+</div>
+
+<div id="onlineGrid" class="online-grid">
+    <div class="online-loading"><div class="spin"></div>{{ T.loading_now|default:'正在加载...' }}</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function loadOnlineList() {
+    var grid = document.getElementById('onlineGrid');
+    grid.innerHTML = '<div class="online-loading"><div class="spin"></div>' + _t('loading_now', '正在加载...') + '</div>';
+
+    Api.get('/open/getAllStreamData', { handle: 'online' }).then(function(res) {
+        if (res.code === 1000) {
+            var streams = res.data || [];
+            document.getElementById('onlineCount').textContent = streams.length;
+            renderCards(streams);
+        } else {
+            grid.innerHTML = '<div class="online-loading">' + (res.msg || _t('load_failed', '加载失败')) + '</div>';
+        }
+    });
+}
+
+function renderCards(streams) {
+    var grid = document.getElementById('onlineGrid');
+    if (streams.length === 0) {
+        grid.innerHTML = '<div class="online-loading">' + _t('no_online_streams', '暂无在线视频流') + '</div>';
+        return;
+    }
+
+    var html = '';
+    streams.forEach(function(s, i) {
+        var name = escapeHtml(s.nickname || s.name || '');
+        var code = escapeHtml(s.code || '');
+        var app = escapeHtml(s.app || '');
+        var streamName = escapeHtml(s.name || '');
+        var clients = s.clients || 0;
+        var produceSpeed = s.produce_speed || '--';
+        var videoInfo = escapeHtml(s.video || _t('value_none', '无'));
+        var audioInfo = escapeHtml(s.audio || _t('value_none', '无'));
+
+        var nameDisplay = name;
+
+        html += '<div class="online-card" data-name="' + name.toLowerCase() + '">' +
+            /* 封面 */
+            '<div class="online-cover" onclick="openPlayer(\'' + app + '\', \'' + streamName + '\')">' +
+            '  <img id="snap_' + code + '" src="/nvr/openSnap?app=' + encodeURIComponent(app) + '&name=' + encodeURIComponent(s.name || '') + '" alt="" style="display:none" onload="this.style.display=\'block\'; var ph=document.getElementById(\'placeholder_' + code + '\'); if(ph) ph.style.display=\'none\';" onerror="showPlaceholder(this)">' +
+            '  <div class="cover-placeholder" id="placeholder_' + code + '">📷</div>' +
+            '  <div class="cover-overlay"><div class="play-btn">▶</div></div>' +
+            '  <div class="cover-status">' +
+            '    <span class="badge"><span class="status-dot"></span>' + _t('online_count', '在线') + '</span>' +
+            '  </div>' +
+            '</div>' +
+
+            /* 信息 */
+            '<div class="online-info">' +
+            '  <div class="online-name" title="' + nameDisplay + '">' + nameDisplay + '</div>' +
+            '  <div class="online-id" title="' + code + '">' + code + '</div>' +
+            '  <div class="online-fields">' +
+            '    <div class="online-field"><span class="f-label">' + _t('field_app', '应用') + '</span><span class="f-value">' + app + '</span></div>' +
+            '    <div class="online-field"><span class="f-label">' + _t('field_viewers', '观看') + '</span><span class="f-value">' + clients + _t('unit_person', '人') + '</span></div>' +
+            '    <div class="online-field"><span class="f-label">' + _t('field_video', '视频') + '</span><span class="f-value" title="' + videoInfo + '">' + videoInfo + '</span></div>' +
+            '    <div class="online-field"><span class="f-label">' + _t('th_audio', '音频') + '</span><span class="f-value" title="' + audioInfo + '">' + audioInfo + '</span></div>' +
+            '  </div>' +
+            '  <div class="online-url">' +
+            '    <span class="u-label">' + _t('field_bandwidth', '带宽') + '</span>' +
+            '    <span class="u-value">' + produceSpeed + '</span>' +
+            '  </div>' +
+            '</div>' +
+            '</div>';
+    });
+
+    grid.innerHTML = html;
+}
+
+function showPlaceholder(img) {
+    img.style.display = 'none';
+    var code = img.id.replace('snap_', '');
+    var ph = document.getElementById('placeholder_' + code);
+    if (ph) ph.style.display = 'flex';
+}
+
+function filterCards() {
+    var q = document.getElementById('searchInput').value.toLowerCase().trim();
+    document.querySelectorAll('.online-card').forEach(function(card) {
+        var name = card.getAttribute('data-name') || '';
+        card.style.display = (q === '' || name.indexOf(q) !== -1) ? '' : 'none';
+    });
+}
+
+function openPlayer(app, name) {
+    window.location.href = '/stream/player?app=' + encodeURIComponent(app) + '&name=' + encodeURIComponent(name);
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+loadOnlineList();
+setInterval(loadOnlineList, 30000);
+</script>
+{% endblock %}

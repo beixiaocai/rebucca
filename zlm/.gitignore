@@ -1,0 +1,9 @@
+﻿# IDE
+.idea/
+.vs/
+.vscode/
+.qoder
+
+bin.x86.windows10/log/*
+bin.x86.gcc9.4/log/*
+bin.arm.gcc9.4/log/*

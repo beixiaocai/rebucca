@@ -1,0 +1,613 @@
+<!--
+作者：北小菜
+官网：https://www.yuturuishi.com
+微信：bilibili_bxc
+哔哩哔哩主页：https://space.bilibili.com/487906612
+gitee地址：https://gitee.com/Vanishi/rebucca
+github地址：https://github.com/beixiaocai/rebucca
+-->
+
+﻿{% extends "app/base.html" %}
+{% load static %}
+
+{% block title %}{{ T.page_dashboard|default:'控制面板' }} - {{ settings.name|default:"Rebucca" }}{% endblock %}
+{% block nav_home %}active{% endblock %}
+
+{% block topbar_left %}
+<span class="topbar-title"> {{ T.page_dashboard|default:'控制面板' }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="dash-page">
+
+<!-- ============== 4 个统计卡 ============== -->
+<div class="stat-grid">
+    <a href="/stream/index" class="stat-card">
+        <div class="stat-label">{{ T.stat_total|default:'接入总数' }}</div>
+        <div class="stat-value"><span id="statTotal">--</span><span class="stat-unit">{{ T.stat_unit_stream|default:'路' }}</span></div>
+        <div class="stat-foot">{{ T.stat_all_cameras|default:'所有摄像头' }}</div>
+    </a>
+    <a href="/stream/online" class="stat-card">
+        <div class="stat-label">{{ T.stat_online|default:'在线数量' }}</div>
+        <div class="stat-value"><span id="statOnline">--</span><span class="stat-unit">{{ T.stat_unit_stream|default:'路' }}</span></div>
+        <div class="stat-foot">{{ T.stat_realtime_pulling|default:'实时拉流中' }}</div>
+    </a>
+    <a href="/stream/online" class="stat-card">
+        <div class="stat-label">{{ T.stat_offline|default:'离线数量' }}</div>
+        <div class="stat-value"><span id="statOffline">--</span><span class="stat-unit">{{ T.stat_unit_stream|default:'路' }}</span></div>
+        <div class="stat-foot">{{ T.stat_not_pulling|default:'未拉流' }}</div>
+    </a>
+    <div class="stat-card">
+        <div class="stat-label">{{ T.stat_uptime|default:'服务运行时长' }}</div>
+        <div class="stat-value stat-value-md" id="statUptime">--</div>
+        <div class="stat-foot" id="statStartTime">{{ T.stat_start_time|default:'启动时间:' }} --</div>
+    </div>
+</div>
+
+<!-- ============== 资源监控 + 系统信息 ============== -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" class="resp-2col">
+
+    <!-- 资源监控 -->
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">{{ T.card_resource_monitor|default:'资源监控' }}</span>
+            <span class="card-extra" id="resRefreshTime">{{ T.just_now|default:'刚刚' }}</span>
+        </div>
+        <div class="card-body">
+            <!-- CPU -->
+            <div class="metric">
+                <div class="metric-head">
+                    <span class="metric-name">CPU</span>
+                    <span class="metric-val"><span id="cpuText">0</span>%</span>
+                </div>
+                <div class="progress"><div class="progress-bar" id="cpuBar" style="width:0%"></div></div>
+                <div class="metric-foot" id="cpuCore">--</div>
+            </div>
+            <!-- 内存 -->
+            <div class="metric">
+                <div class="metric-head">
+                    <span class="metric-name">{{ T.metric_memory|default:'内存' }}</span>
+                    <span class="metric-val"><span id="memText">0</span>%</span>
+                </div>
+                <div class="progress"><div class="progress-bar" id="memBar" style="width:0%"></div></div>
+                <div class="metric-foot" id="memTotal">--</div>
+            </div>
+            <!-- 磁盘 -->
+            <div class="metric">
+                <div class="metric-head">
+                    <span class="metric-name">{{ T.metric_disk|default:'磁盘' }}</span>
+                    <span class="metric-val"><span id="diskText">0</span>%</span>
+                </div>
+                <div class="progress"><div class="progress-bar" id="diskBar" style="width:0%"></div></div>
+                <div class="metric-foot" id="diskTotal">--</div>
+            </div>
+            <!-- 显卡（动态渲染） -->
+            <div id="gpuMetrics"></div>
+        </div>
+    </div>
+
+    <!-- 系统信息 -->
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">{{ T.card_system_info|default:'系统信息' }}</span>
+            <span class="card-extra" id="appVersion">--</span>
+        </div>
+        <div class="card-body">
+            <div class="info-row">
+                <span class="info-label">{{ T.info_app_name|default:'应用名称' }}</span>
+                <span class="info-value">{{ settings.name|default:"Rebucca" }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">{{ T.info_software_flag|default:'软件标记' }}</span>
+                <span class="info-value mono" id="appFlag">--</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">{{ T.info_build_time|default:'构建时间' }}</span>
+                <span class="info-value" id="appBuilt">--</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">{{ T.info_os|default:'操作系统' }}</span>
+                <span class="info-value" id="osSystem">--</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">{{ T.info_machine_name|default:'机器名称' }}</span>
+                <span class="info-value" id="osMachine">--</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============== 流媒体服务 ZLM ============== -->
+<div class="card" style="margin-top:16px" id="zlmCard">
+    <div class="card-header">
+        <span class="card-title">{{ T.dash_zlm_title|default:'流媒体服务' }}</span>
+        <span class="card-extra" id="zlmStatusBadge">{{ T.dash_zlm_checking|default:'检测中…' }}</span>
+    </div>
+    <div class="card-body">
+        <div class="quick-actions">
+            <button type="button" class="btn btn-sm btn-primary" id="btnZlmStart" onclick="mediaControl('start')">{{ T.dash_zlm_start|default:'启动' }}</button>
+            <button type="button" class="btn btn-sm" id="btnZlmStop" onclick="mediaControl('stop')">{{ T.dash_zlm_stop|default:'停止' }}</button>
+            <button type="button" class="btn btn-sm btn-ghost" id="btnZlmRestart" onclick="mediaControl('restart')">{{ T.dash_zlm_restart|default:'重启' }}</button>
+            <span class="quick-action-loading" id="zlmLoading"></span>
+        </div>
+    </div>
+</div>
+
+<!-- ============== 日志与刷新 ============== -->
+<div class="card" style="margin-top:16px">
+    <div class="card-header">
+        <span class="card-title">{{ T.card_log_tools|default:'日志与刷新' }}</span>
+    </div>
+    <div class="card-body">
+        <div class="quick-actions">
+            <button type="button" class="btn btn-sm" id="btnExportLogs" onclick="f_openExportLogs()">{{ T.btn_export_logs|default:'导出日志' }}</button>
+            <span class="quick-action-loading" id="exportLogsLoading">{{ T.processing|default:'处理中...' }}</span>
+            <button type="button" class="btn btn-sm btn-ghost" onclick="refreshDashboard()">{{ T.btn_refresh_symbol|default:'↻ 刷新' }}</button>
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- ============== 版本检测弹窗 ============== -->
+<div id="checkVersionDialog" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.4);z-index:9999;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:8px;width:420px;max-width:90%;box-shadow:0 8px 30px rgba(0,0,0,.15);overflow:hidden">
+        <div style="padding:16px 20px;border-bottom:1px solid #eef2f5;display:flex;align-items:center;justify-content:space-between">
+            <h4 style="margin:0;font-size:15px;font-weight:600;color:#1f2937">{{ T.index_new_version|default:'发现新版本' }}</h4>
+            <span onclick="f_closeCheckVersionDialog()" style="cursor:pointer;font-size:18px;color:#9ca3af;line-height:1">&times;</span>
+        </div>
+        <div id="checkVersionContent" style="padding:20px;max-height:400px;overflow-y:auto"></div>
+        <div style="padding:12px 20px;border-top:1px solid #eef2f5;display:flex;justify-content:flex-end;gap:8px">
+            <button onclick="f_closeCheckVersionDialog()" style="padding:6px 16px;border:1px solid #d1d5db;border-radius:4px;background:#fff;color:#4b5563;cursor:pointer;font-size:13px">{{ T.index_cancel|default:'取消' }}</button>
+            <button onclick="f_downloadNewVersion()" style="padding:6px 16px;border:none;border-radius:4px;background:#169F85;color:#fff;cursor:pointer;font-size:13px">{{ T.index_download_version|default:'下载新版本' }}</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_head %}
+<style>
+.dash-page { max-width: 1400px; margin: 0 auto; }
+
+/* ========== 统计卡（统一灰） ========== */
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 16px;
+}
+.stat-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 18px 20px;
+    transition: all .15s;
+    color: inherit;
+    text-decoration: none;
+    display: block;
+}
+.stat-card:hover {
+    border-color: #169F85;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(22,159,133,.08);
+}
+.stat-label {
+    font-size: 13px;
+    color: #6b7280;
+    margin-bottom: 6px;
+}
+.stat-value {
+    font-size: 28px;
+    font-weight: 600;
+    color: #1f2937;
+    line-height: 1.2;
+    font-family: 'Consolas', 'Courier New', monospace;
+}
+.stat-value-md { font-size: 18px; letter-spacing: .3px; }
+.stat-unit {
+    font-size: 12px;
+    color: #9ca3af;
+    font-weight: 400;
+    margin-left: 4px;
+}
+.stat-foot {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+/* ========== 卡片通用 ========== */
+.card-extra {
+    font-size: 12px;
+    color: #9ca3af;
+    font-family: 'Consolas', 'Courier New', monospace;
+}
+
+/* ========== 资源监控 ========== */
+.metric { margin-bottom: 18px; }
+.metric:last-child { margin-bottom: 0; }
+.metric-head {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+.metric-name {
+    font-size: 13px;
+    color: #4b5563;
+}
+.metric-val {
+    font-size: 13px;
+    color: #1f2937;
+    font-weight: 600;
+    font-family: 'Consolas', 'Courier New', monospace;
+}
+.metric-foot {
+    font-size: 12px;
+    color: #9ca3af;
+    margin-top: 4px;
+}
+
+/* ========== 进度条（单色） ========== */
+.progress {
+    background: #f1f5f9;
+    height: 6px;
+    border-radius: 3px;
+    overflow: hidden;
+}
+.progress-bar {
+    background: #169F85;     /* 统一绿色，去掉蓝/黄/红多色 */
+    height: 100%;
+    border-radius: 3px;
+    transition: width .4s ease;
+}
+.gpu-metric .gpu-name { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; max-width: 78%; line-height: 1.35; }
+.gpu-tag {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .3px;
+    vertical-align: middle;
+}
+.gpu-tag-nvidia { background: #dcfce7; color: #166534; }
+.gpu-tag-intel { background: #dbeafe; color: #1e40af; }
+.gpu-tag-amd { background: #fee2e2; color: #991b1b; }
+.gpu-tag-other { background: #f3f4f6; color: #6b7280; }
+.gpu-bar-nvidia { background: #22c55e; }
+.gpu-bar-intel { background: #3b82f6; }
+.gpu-bar-amd { background: #ef4444; }
+.gpu-empty .metric-foot { color: #9ca3af; }
+#zlmStatusBadge.running { color: #169F85; font-weight: 600; }
+#zlmStatusBadge.stopped { color: #b91c1c; font-weight: 600; }
+
+/* ========== 等宽字体 ========== */
+.mono { font-family: 'Consolas', 'Courier New', monospace; }
+
+/* ========== 日志操作栏 ========== */
+.quick-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.quick-action-opt {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--c-text-secondary, #64748b);
+    cursor: pointer;
+    user-select: none;
+    padding: 6px 10px;
+    border: 1px solid var(--c-border, #e2e8f0);
+    border-radius: var(--r-md, 6px);
+    background: var(--c-surface, #fff);
+}
+.quick-action-opt input { margin: 0; accent-color: #169F85; }
+.quick-action-loading {
+    display: none;
+    font-size: 12px;
+    color: #169F85;
+}
+.quick-action-loading.show { display: inline; }
+.btn-ghost {
+    background: var(--c-surface, #fff);
+    color: var(--c-text-secondary, #64748b);
+    border: 1px solid var(--c-border, #e2e8f0);
+}
+.btn-ghost:hover {
+    color: #169F85;
+    border-color: #169F85;
+    background: #f0f9f6;
+}
+
+/* ========== 响应式 ========== */
+@media (max-width: 1100px) {
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 700px) {
+    .stat-grid { grid-template-columns: 1fr; }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* ========== 时长格式化 ========== */
+function formatUptime(sec) {
+    if (!sec || sec < 0) return '--';
+    var d = Math.floor(sec / 86400);
+    var h = Math.floor((sec % 86400) / 3600);
+    var m = Math.floor((sec % 3600) / 60);
+    var s = sec % 60;
+    var parts = [];
+    if (d > 0) parts.push(d + _t('time_day', '天'));
+    if (h > 0 || d > 0) parts.push(h + _t('time_hour', '小时'));
+    if (m > 0 || h > 0 || d > 0) parts.push(m + _t('time_minute', '分'));
+    parts.push(s + _t('time_second', '秒'));
+    return parts.join(' ');
+}
+
+/* ========== 加载系统信息 ========== */
+function gpuVendorLabel(vendor) {
+    var m = {
+        nvidia: _t('gpu_vendor_nvidia', 'NVIDIA'),
+        intel: _t('gpu_vendor_intel', 'Intel'),
+        amd: _t('gpu_vendor_amd', 'AMD')
+    };
+    return m[vendor] || _t('gpu_vendor_other', 'GPU');
+}
+
+function renderGpuMetrics(gpus, loaded) {
+    var box = document.getElementById('gpuMetrics');
+    if (!box) return;
+    gpus = gpus || [];
+    if (!gpus.length) {
+        if (!loaded) {
+            box.innerHTML =
+                '<div class="metric gpu-metric">' +
+                '<div class="metric-head"><span class="metric-name">' + _t('metric_gpu', '显卡') + '</span><span class="metric-val">0%</span></div>' +
+                '<div class="progress"><div class="progress-bar gpu-bar" style="width:0%"></div></div>' +
+                '<div class="metric-foot">' + _t('gpu_loading', '正在读取显卡信息…') + '</div></div>';
+        } else {
+            box.innerHTML =
+                '<div class="metric gpu-empty">' +
+                '<div class="metric-head"><span class="metric-name">' + _t('metric_gpu', '显卡') + '</span><span class="metric-val">0%</span></div>' +
+                '<div class="metric-foot">' + _t('gpu_not_detected', '未检测到可用显卡或暂无法读取占用') + '</div></div>';
+        }
+        return;
+    }
+    var html = '';
+    gpus.forEach(function(g, i) {
+        var util = g.util_percent;
+        var utilShow = util != null && !isNaN(util) ? Math.round(util) : 0;
+        var barW = util != null && !isNaN(util) ? Math.min(100, Math.max(0, util)) : 0;
+        var name = escapeHtml(g.name || ('GPU ' + (i + 1)));
+        var vendor = g.vendor || 'other';
+        var vendorText = gpuVendorLabel(vendor);
+        html +=
+            '<div class="metric gpu-metric">' +
+            '<div class="metric-head">' +
+            '<span class="metric-name gpu-name"><span class="gpu-tag gpu-tag-' + vendor + '">' + vendorText + '</span> ' + name + '</span>' +
+            '<span class="metric-val">' + utilShow + '%</span>' +
+            '</div>' +
+            '<div class="progress"><div class="progress-bar gpu-bar gpu-bar-' + vendor + '" style="width:' + barW + '%"></div></div>' +
+            '<div class="metric-foot">' + escapeHtml(g.detail_str || '--') + '</div>' +
+            '</div>';
+    });
+    box.innerHTML = html;
+}
+
+function loadGpuData() {
+    Api.get('/index/openGpuInfo').then(function(res) {
+        if (res.code !== 1000) return;
+        renderGpuMetrics(res.os_gpus || [], true);
+    }).catch(function() {
+        renderGpuMetrics([], true);
+    });
+}
+
+function loadIndexData() {
+    Api.get('/index/openIndex').then(function(res) {
+        if (res.code !== 1000) return;
+        var app = res.appInfo || {};
+        var os = res.osInfo || {};
+
+        // 系统信息
+        document.getElementById('appVersion').textContent = app.project_version || '--';
+        document.getElementById('appFlag').textContent = app.project_flag || '--';
+        document.getElementById('appBuilt').textContent = app.project_built || '--';
+        document.getElementById('osSystem').textContent = os.system_name || os.os || '--';
+        document.getElementById('osMachine').textContent = os.machine_node || os.hostname || '--';
+
+        // 运行时长
+        if (app.start_timestamp) {
+            window._appStartTs = app.start_timestamp;
+            var uptimeSec = Math.floor(Date.now() / 1000) - app.start_timestamp;
+            document.getElementById('statUptime').textContent = formatUptime(uptimeSec);
+            var dt = new Date(app.start_timestamp * 1000);
+            var pad = function(n) { return n < 10 ? '0' + n : '' + n; };
+            document.getElementById('statStartTime').textContent =
+                _t('started_at', '启动于') + ' ' + dt.getFullYear() + '-' + pad(dt.getMonth()+1) + '-' + pad(dt.getDate()) +
+                ' ' + pad(dt.getHours()) + ':' + pad(dt.getMinutes());
+        }
+
+        // CPU
+        var cpuRate = Math.round((os.os_cpu_used_rate || 0) * 100);
+        document.getElementById('cpuText').textContent = cpuRate;
+        document.getElementById('cpuBar').style.width = cpuRate + '%';
+        document.getElementById('cpuCore').textContent = os.os_cpu_used_rate_str || '--';
+
+        // 内存
+        var memRate = Math.round((os.os_virtual_mem_used_rate || 0) * 100);
+        document.getElementById('memText').textContent = memRate;
+        document.getElementById('memBar').style.width = memRate + '%';
+        document.getElementById('memTotal').textContent = os.os_virtual_mem_used_rate_str || '--';
+
+        // 磁盘
+        var diskRate = Math.round((os.os_disk_used_rate || 0) * 100);
+        document.getElementById('diskText').textContent = diskRate;
+        document.getElementById('diskBar').style.width = diskRate + '%';
+        document.getElementById('diskTotal').textContent = os.os_disk_used_rate_str || '--';
+
+        // 刷新时间
+        var now = new Date();
+        var p = function(n) { return n < 10 ? '0' + n : '' + n; };
+        document.getElementById('resRefreshTime').textContent =
+            _t('updated_at', '更新于') + ' ' + p(now.getHours()) + ':' + p(now.getMinutes()) + ':' + p(now.getSeconds());
+    });
+}
+
+/* ========== 加载流统计 ========== */
+function loadStreamData() {
+    Api.get('/open/getStatisticsStream').then(function(res) {
+        if (res.code !== 1000) return;
+        var info = res.info || {};
+        var total = info.count || 0;
+        var online = info.forwardCount || 0;
+        var offline = total - online;
+        document.getElementById('statTotal').textContent = total;
+        document.getElementById('statOnline').textContent = online;
+        document.getElementById('statOffline').textContent = offline > 0 ? offline : 0;
+    });
+}
+
+function loadMediaStatus() {
+    Api.get('/index/openMediaStatus').then(function(res) {
+        var badge = document.getElementById('zlmStatusBadge');
+        if (!badge) return;
+        if (!res || res.code !== 1000) {
+            badge.textContent = _t('dash_zlm_unknown', '未知');
+            badge.className = 'card-extra';
+            return;
+        }
+        var d = res.data || {};
+        if (d.running) {
+            badge.textContent = _t('dash_zlm_running', '运行中') + (d.pid ? ' · PID ' + d.pid : '');
+            badge.className = 'card-extra running';
+        } else {
+            badge.textContent = _t('dash_zlm_stopped', '未运行');
+            badge.className = 'card-extra stopped';
+        }
+        var startBtn = document.getElementById('btnZlmStart');
+        var stopBtn = document.getElementById('btnZlmStop');
+        if (startBtn) startBtn.disabled = !!d.running;
+        if (stopBtn) stopBtn.disabled = !d.running;
+    }).catch(function() {});
+}
+
+function mediaControl(action) {
+    var loading = document.getElementById('zlmLoading');
+    if (loading) { loading.classList.add('show'); loading.textContent = _t('processing', '处理中...'); }
+    Api.post('/index/openMediaControl', { action: action }).then(function(res) {
+        if (loading) loading.classList.remove('show');
+        showToast((res && res.msg) || _t('msg_unknown_error', '失败'), res && res.code === 1000 ? 'success' : 'error');
+        loadMediaStatus();
+        if (action !== 'stop') loadStreamData();
+    }).catch(function() {
+        if (loading) loading.classList.remove('show');
+        showToast(_t('msg_unknown_error', '网络错误'), 'error');
+    });
+}
+
+/* ========== 刷新 ========== */
+function refreshDashboard() {
+    loadIndexData();
+    loadGpuData();
+    loadStreamData();
+    loadMediaStatus();
+}
+
+/* ========== 初始化 ========== */
+renderGpuMetrics([], false);
+refreshDashboard();
+
+/* ========== 版本检测 ========== */
+var downloadNewVersionUrl = "";
+
+function f_closeCheckVersionDialog() {
+    document.getElementById('checkVersionDialog').style.display = 'none';
+}
+
+function f_downloadNewVersion() {
+    if (downloadNewVersionUrl) {
+        window.open(downloadNewVersionUrl);
+    }
+}
+
+function f_openCheckVersion() {
+    fetch('/version/openCheckVersion', {
+        method: 'GET',
+        headers: {'Content-Type': 'application/json'}
+    }).then(function(res) {
+        return res.json();
+    }).then(function(res) {
+        if (1000 === res.code) {
+            var info = res.info || {};
+            var version = (info.version || '').toString();
+            var updateContent = info.updateContent || [];
+            var pubdate = info.pubdate || '';
+            downloadNewVersionUrl = info.url || '';
+
+            var html = '<div style="margin-bottom:12px;display:flex;align-items:center;gap:8px">' +
+                '<span style="display:inline-block;padding:2px 8px;background:#eab308;color:#fff;border-radius:3px;font-size:11px;font-weight:600">NEW</span>' +
+                '<span style="font-size:14px;font-weight:600;color:#1f2937">v' + version + '</span>' +
+                '<span style="font-size:12px;color:#9ca3af;margin-left:auto">' + pubdate + '</span>' +
+                '</div>' +
+                '<ul style="margin:0;padding-left:20px">';
+
+            for (var i = 0; i < updateContent.length; i++) {
+                html += '<li style="padding:3px 0;font-size:13px;color:#4b5563;line-height:1.6">' + updateContent[i] + '</li>';
+            }
+
+            html += '</ul>';
+            document.getElementById('checkVersionContent').innerHTML = html;
+            document.getElementById('checkVersionDialog').style.display = 'flex';
+        }
+    }).catch(function() {});
+}
+
+f_openCheckVersion();
+
+/* ========== 导出日志 ========== */
+function f_openExportLogs() {
+    var btn = document.getElementById('btnExportLogs');
+    var loading = document.getElementById('exportLogsLoading');
+    btn.disabled = true;
+    loading.classList.add('show');
+    Api.post('/system/openExportLogs', {}).then(function(res) {
+        btn.disabled = false;
+        loading.classList.remove('show');
+        if (res.code === 1000) {
+            var info = res.info || {};
+            var export_filename = info.export_filename;
+            if (export_filename) {
+                window.open('/storage/openDownload?filename=' + encodeURIComponent(export_filename));
+                showToast(res.msg, 'success');
+            } else {
+                showToast(_t('toast_export_no_filename', '导出失败：未获取到文件名'), 'error');
+            }
+        } else {
+            showToast(res.msg, 'error');
+        }
+    }).catch(function() {
+        btn.disabled = false;
+        loading.classList.remove('show');
+        showToast(_t('msg_unknown_error', '失败'), 'error');
+    });
+}
+
+/* ========== 定时刷新（系统信息 10s，运行时长 1s） ========== */
+setInterval(loadIndexData, 10000);
+setInterval(loadGpuData, 10000);
+setInterval(loadStreamData, 10000);
+setInterval(loadMediaStatus, 8000);
+setInterval(function() {
+    if (window._appStartTs) {
+        var sec = Math.floor(Date.now() / 1000) - window._appStartTs;
+        document.getElementById('statUptime').textContent = formatUptime(sec);
+    }
+}, 1000);
+</script>
+{% endblock %}

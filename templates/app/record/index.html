@@ -1,0 +1,215 @@
+<!--
+作者：北小菜
+官网：https://www.yuturuishi.com
+微信：bilibili_bxc
+哔哩哔哩主页：https://space.bilibili.com/487906612
+gitee地址：https://gitee.com/Vanishi/rebucca
+github地址：https://github.com/beixiaocai/rebucca
+-->
+
+{% extends "app/base.html" %}
+{% load static %}
+
+{% block title %}{{ stream_name }} · {{ T.record_detail_title|default:'录像详情' }} - {{ settings.name|default:"Rebucca" }}{% endblock %}
+{% block nav_stream %}active{% endblock %}
+{% block page_title %}{{ T.record_detail_title|default:'录像详情' }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.rec-page{max-width:1100px;margin:0 auto;}
+.rec-head{display:flex;align-items:flex-start;justify-content:space-between;padding:0 0 14px;gap:12px;flex-wrap:wrap;}
+.rec-head-main h3{margin:0 0 6px;font-size:16px;font-weight:600;color:#1e293b;}
+.rec-head-main .sub{font-size:12px;color:#64748b;}
+.rec-status{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:600;}
+.rec-status.on{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;}
+.rec-status.on::before{content:'';width:6px;height:6px;border-radius:50%;background:#ef4444;animation:recPulse 1.4s infinite;}
+.rec-status.idle{background:#fffbeb;color:#b45309;border:1px solid #fde68a;}
+.rec-status.off{background:#f3f4f6;color:#6b7280;border:1px solid #e5e7eb;}
+@keyframes recPulse{0%,100%{opacity:1}50%{opacity:.35}}
+.rec-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.rec-stats{font-size:12px;color:#6b7280;margin-bottom:12px;}
+.rec-table-wrap{background:#fff;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.05);overflow:hidden;}
+.rec-table{width:100%;border-collapse:collapse;}
+.rec-table th,.rec-table td{padding:10px 14px;font-size:13px;text-align:left;border-bottom:1px solid #f3f4f6;}
+.rec-table th{background:#fafbfc;color:#6b7280;font-weight:600;font-size:12px;}
+.rec-table tr:hover td{background:#f9fafb;}
+.rec-empty{padding:48px 20px;text-align:center;color:#9ca3af;font-size:13px;}
+.rec-actions{display:flex;gap:6px;flex-wrap:wrap;}
+.btn{padding:7px 14px;font-size:12px;border-radius:6px;border:1px solid var(--c-border,#dcdfe6);background:#fff;cursor:pointer;text-decoration:none;color:inherit;display:inline-flex;align-items:center;}
+.btn:hover{color:#169F85;border-color:#169F85;background:#f0f9f6;}
+.btn-sm{padding:4px 10px;font-size:11px;}
+.btn-danger:hover{color:#dc2626;border-color:#fca5a5;background:#fef2f2;}
+.badge-rec{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:#dbeafe;color:#1d4ed8;}
+.badge-miss{background:#fef2f2;color:#991b1b;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rec-page">
+  <div class="rec-head">
+    <div class="rec-head-main">
+      <h3>{{ stream_name|default:'摄像头' }}</h3>
+      <div class="sub">{{ T.record_detail_sub|default:'历史录像分段列表，关闭录像后仍可查看已保存内容' }}</div>
+      {% if is_recording %}
+      <span class="rec-status on">{{ T.record_status_recording|default:'录制中' }}</span>
+      {% elif record_enable %}
+      <span class="rec-status idle">{{ T.record_status_enabled_idle|default:'已启用，当前未在录制' }}</span>
+      {% else %}
+      <span class="rec-status off">{{ T.record_status_disabled|default:'录像已关闭' }}</span>
+      {% endif %}
+    </div>
+    <div class="rec-tools">
+      <a href="/stream/index" class="btn">{{ T.record_back_stream|default:'← 返回视频管理' }}</a>
+      <button type="button" class="btn" onclick="loadRecords()">{{ T.btn_refresh_symbol|default:'↻ 刷新' }}</button>
+    </div>
+  </div>
+  <div class="rec-stats" id="recStats"></div>
+  <div class="rec-table-wrap">
+    <table class="rec-table">
+      <thead>
+        <tr>
+          <th style="width:60px">ID</th>
+          <th style="width:170px">{{ T.record_start_time|default:'开始时间' }}</th>
+          <th style="width:90px">{{ T.record_duration|default:'时长' }}</th>
+          <th style="width:100px">{{ T.record_file_size|default:'大小' }}</th>
+          <th style="width:90px">{{ T.th_status|default:'状态' }}</th>
+          <th style="width:160px">{{ T.col_action|default:'操作' }}</th>
+        </tr>
+      </thead>
+      <tbody id="recBody">
+        <tr><td colspan="6" class="rec-empty">{{ T.index_loading|default:'加载中...' }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div style="margin-top:12px">
+    <div class="pagination" id="pagination"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="playModal" onclick="if(event.target===this)closePlayModal()">
+  <div class="modal" style="max-width:900px;width:94%">
+    <div class="modal-header">
+      <span class="modal-title">{{ T.record_play|default:'播放录像' }}</span>
+      <button class="modal-close" onclick="closePlayModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="padding:0;background:#000">
+      <video id="playVideo" controls style="width:100%;max-height:70vh;display:block;background:#000"></video>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var g_streamId = {{ stream_id|default:0 }};
+var g_currentPage = 1;
+var g_pageSize = 20;
+
+function loadRecords(page){
+  if(page) g_currentPage = page;
+  var p = { p: g_currentPage, ps: g_pageSize, stream_id: g_streamId };
+  var body = document.getElementById('recBody');
+  body.innerHTML = '<tr><td colspan="6" class="rec-empty">'+_t('index_loading','加载中...')+'</td></tr>';
+  Api.get('/nvr/openRecordIndex', p).then(function(res){
+    body.innerHTML = '';
+    var pageData = (res && res.pageData) ? res.pageData : {};
+    document.getElementById('recStats').textContent = _t('record_stats','共 {n} 条录像').replace('{n}', pageData.count||0);
+    if(!res || res.code!==1000 || !(res.data||[]).length){
+      body.innerHTML = '<tr><td colspan="6" class="rec-empty">'+_t('record_empty_hint','暂无录像文件')+'</td></tr>';
+      renderPagination(document.getElementById('pagination'), pageData, loadRecords);
+      return;
+    }
+    res.data.forEach(function(r){
+      var tr = document.createElement('tr');
+      var status = r.file_exists
+        ? '<span class="badge-rec">'+_t('record_file_ok','可播放')+'</span>'
+        : '<span class="badge-rec badge-miss">'+_t('record_file_missing','文件缺失')+'</span>';
+      tr.innerHTML = '<td>'+r.id+'</td>'
+        +'<td style="font-size:12px;color:#6b7280">'+escapeHtml(r.start_time)+'</td>'
+        +'<td>'+fmtDur(r.duration)+'</td>'
+        +'<td>'+fmtSize(r.file_size)+'</td>'
+        +'<td>'+status+'</td>'
+        +'<td><div class="rec-actions"></div></td>';
+      var act = tr.querySelector('.rec-actions');
+      if(r.file_exists){
+        var playBtn = document.createElement('button');
+        playBtn.className = 'btn btn-sm';
+        playBtn.textContent = _t('record_play','播放');
+        playBtn.addEventListener('click', function(){ playRecord(r.id, r.file_path); });
+        act.appendChild(playBtn);
+      }
+      if(r.id || r.file_path){
+        var delBtn = document.createElement('button');
+        delBtn.className = 'btn btn-sm btn-danger';
+        delBtn.textContent = _t('btn_del','删除');
+        delBtn.addEventListener('click', function(){ delRecord(r.id, r.file_path); });
+        act.appendChild(delBtn);
+      }
+      body.appendChild(tr);
+    });
+    renderPagination(document.getElementById('pagination'), pageData, loadRecords);
+  });
+}
+
+function fmtSize(bytes){
+  if(!bytes || bytes<=0) return '--';
+  if(bytes < 1024*1024) return (bytes/1024).toFixed(1)+' KB';
+  if(bytes < 1024*1024*1024) return (bytes/1024/1024).toFixed(1)+' MB';
+  return (bytes/1024/1024/1024).toFixed(2)+' GB';
+}
+
+function fmtDur(sec){
+  if(!sec || sec<=0) return '--';
+  sec = Math.round(sec);
+  var m = Math.floor(sec/60), s = sec%60;
+  if(m>=60) return Math.floor(m/60)+'h'+(m%60)+'m';
+  return m+'m'+s+'s';
+}
+
+function playRecord(id, path){
+  var v = document.getElementById('playVideo');
+  var url = '/nvr/openRecordFile?';
+  if(id && id !== 0) url += 'id=' + encodeURIComponent(id);
+  else if(path) url += 'path=' + encodeURIComponent(path);
+  else return;
+  v.src = url;
+  document.getElementById('playModal').classList.add('show');
+  v.play().catch(function(){});
+}
+
+function closePlayModal(){
+  var v = document.getElementById('playVideo');
+  v.pause();
+  v.removeAttribute('src');
+  document.getElementById('playModal').classList.remove('show');
+}
+
+function delRecord(id, path){
+  if(!confirm(_t('record_del_confirm','确认删除该录像文件？'))) return;
+  var payload = (id && id !== 0) ? {id:id} : {path: path || ''};
+  Api.post('/nvr/openRecordDel', payload).then(function(res){
+    showToast(res.msg, res.code===1000?'success':'error');
+    if(res.code===1000) loadRecords();
+  });
+}
+
+loadRecords();
+setInterval(function(){
+  Api.get('/nvr/openVideoIsRecording', {stream_id: g_streamId}).then(function(res){
+    if(!res || res.code!==1000) return;
+    var el = document.querySelector('.rec-status');
+    if(!el) return;
+    if(res.is_recording){
+      el.className = 'rec-status on';
+      el.textContent = _t('record_status_recording','录制中');
+    } else if(res.record_enable){
+      el.className = 'rec-status idle';
+      el.textContent = _t('record_status_enabled_idle','已启用，当前未在录制');
+    } else {
+      el.className = 'rec-status off';
+      el.textContent = _t('record_status_disabled','录像已关闭');
+    }
+  });
+}, 8000);
+</script>
+{% endblock %}

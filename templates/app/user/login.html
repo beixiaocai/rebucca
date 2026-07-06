@@ -1,0 +1,252 @@
+<!--
+作者：北小菜
+官网：https://www.yuturuishi.com
+微信：bilibili_bxc
+哔哩哔哩主页：https://space.bilibili.com/487906612
+gitee地址：https://gitee.com/Vanishi/rebucca
+github地址：https://github.com/beixiaocai/rebucca
+-->
+
+{% load static %}
+<!DOCTYPE html>
+<html lang="{{ T_SELECTED_LANG }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ settings.name|default:"Rebucca" }} · {{ T.login_title|default:'登录' }}</title>
+    <link rel="icon" href="{{ settings.logo_url|default:'/static/images/logo.png' }}">
+    <link rel="stylesheet" href="{% static 'lib/css/style.css' %}?v=20260704p">
+    <style>
+        .login-page {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: var(--c-bg);
+            position: relative;
+            overflow: hidden;
+        }
+        .login-page::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at 20% 15%, rgba(22, 159, 133, 0.07), transparent 42%),
+                radial-gradient(circle at 85% 80%, rgba(79, 110, 247, 0.05), transparent 40%);
+            pointer-events: none;
+        }
+        .login-shell {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 400px;
+        }
+        .login-card {
+            background: var(--c-surface);
+            border: 1px solid var(--c-border);
+            border-radius: var(--r-xl);
+            box-shadow: var(--sh-lg);
+            padding: 36px 32px 28px;
+        }
+        .login-brand {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            margin-bottom: 28px;
+        }
+        .login-logo {
+            width: 52px;
+            height: 52px;
+            border-radius: 12px;
+            background: var(--c-primary-light);
+            border: 1px solid var(--c-primary-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+        .login-logo img {
+            width: 36px;
+            height: 36px;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+        .login-logo svg {
+            width: 28px;
+            height: 28px;
+            color: var(--c-primary);
+        }
+        .login-app-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--c-text);
+            line-height: 1.35;
+            margin-bottom: 6px;
+        }
+        .login-welcome {
+            font-size: 13px;
+            color: var(--c-text-secondary);
+            line-height: 1.5;
+            max-width: 280px;
+        }
+        .login-form .form-group { margin-bottom: 14px; }
+        .login-form .form-input {
+            height: 42px;
+            padding: 0 12px;
+            border-radius: var(--r-md);
+        }
+        .login-form .btn-login {
+            width: 100%;
+            height: 42px;
+            margin-top: 6px;
+            font-size: 14px;
+            border-radius: var(--r-md);
+        }
+        .captcha-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .captcha-row .form-input { flex: 1; }
+        .captcha-img {
+            height: 42px;
+            width: 118px;
+            border: 1px solid var(--c-border);
+            border-radius: var(--r-md);
+            cursor: pointer;
+            background: var(--c-border-light);
+            flex-shrink: 0;
+            transition: border-color var(--tr);
+        }
+        .captcha-img:hover { border-color: var(--c-text-tertiary); }
+        .login-footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: var(--c-text-tertiary);
+        }
+        @media (max-width: 480px) {
+            .login-card { padding: 28px 22px 22px; }
+        }
+    </style>
+</head>
+<body class="login-page">
+
+<div class="login-shell">
+    <div class="login-card">
+        <div class="login-brand">
+            <div class="login-logo">
+                <img src="{{ settings.logo_url|default:'/static/images/logo.png' }}" alt=""
+                     onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+                <svg style="display:none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            </div>
+            <div class="login-app-name">{{ settings.name|default:"Rebucca" }}</div>
+            <p class="login-welcome">{% if settings.welcome %}{{ settings.welcome }}{% else %}{{ T.login_welcome|default:'欢迎登录' }}{% endif %}</p>
+        </div>
+
+        <form class="login-form" id="loginForm" onsubmit="return doLogin(event)">
+            {% csrf_token %}
+            <div class="form-group">
+                <label class="form-label" for="username">{{ T.label_username|default:'用户名' }}</label>
+                <input type="text" class="form-input" id="username" placeholder="{{ T.placeholder_username|default:'请输入用户名' }}" autocomplete="username" autofocus>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="password">{{ T.label_password|default:'密码' }}</label>
+                <input type="password" class="form-input" id="password" placeholder="{{ T.placeholder_password|default:'请输入密码' }}" autocomplete="current-password">
+            </div>
+            {% if isEnableLoginCaptcha %}
+            <div class="form-group">
+                <label class="form-label" for="captcha">{{ T.label_captcha|default:'验证码' }}</label>
+                <div class="captcha-row">
+                    <input type="text" class="form-input" id="captcha" placeholder="{{ T.placeholder_captcha|default:'请输入验证码' }}" autocomplete="off">
+                    <img class="captcha-img" id="captchaImg" src="/user/openCaptcha" onclick="refreshCaptcha()" title="{{ T.title_click_refresh|default:'点击刷新' }}" alt="captcha">
+                </div>
+            </div>
+            {% endif %}
+            <button type="submit" class="btn btn-primary btn-login" id="loginBtn">{{ T.btn_login|default:'登录' }}</button>
+        </form>
+    
+        <div class="login-footer">
+            v{{ projectVersion|default:"1.0" }} · &copy; 2025–2026
+        </div>
+    </div>
+</div>
+
+<script>
+var isEnableLoginCaptcha = {{ isEnableLoginCaptcha|default:0 }};
+
+function refreshCaptcha() {
+    var img = document.getElementById('captchaImg');
+    if (img) img.src = '/user/openCaptcha?t=' + Date.now();
+}
+
+function doLogin(e) {
+    e.preventDefault();
+    var username = document.getElementById('username').value.trim();
+    var password = document.getElementById('password').value.trim();
+
+    if (!username) { showToast(_t('toast_enter_username', '请输入用户名'), 'warning'); return false; }
+    if (!password) { showToast(_t('toast_enter_password', '请输入密码'), 'warning'); return false; }
+
+    var captcha = '';
+    if (isEnableLoginCaptcha) {
+        captcha = document.getElementById('captcha').value.trim();
+        if (!captcha) { showToast(_t('toast_enter_captcha', '请输入验证码'), 'warning'); return false; }
+    }
+
+    var btn = document.getElementById('loginBtn');
+    btn.disabled = true;
+    btn.textContent = _t('btn_logging_in', '登录中...');
+
+    var data = {
+        username: username,
+        password: password
+    };
+    if (isEnableLoginCaptcha) {
+        data.captcha = captcha;
+    }
+
+    fetch('/login', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': (document.querySelector('[name=csrfmiddlewaretoken]') || {}).value || ''
+        },
+        body: JSON.stringify(data)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        if (res.code === 1000) {
+            showToast(_t('toast_login_success', '登录成功'), 'success');
+            setTimeout(function() { location.href = '/'; }, 500);
+        } else {
+            showToast(res.msg || _t('toast_login_failed', '登录失败'), 'error');
+            if (isEnableLoginCaptcha) refreshCaptcha();
+        }
+    })
+    .catch(function() {
+        showToast(_t('toast_network_error', '网络异常，请重试'), 'error');
+    })
+    .finally(function() {
+        btn.disabled = false;
+        btn.textContent = _t('btn_login', '登录');
+    });
+
+    return false;
+}
+
+document.getElementById('password').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') doLogin(e);
+});
+</script>
+<script>
+var T = {{ T_JSON|safe }};
+var T_SELECTED_LANG = "{{ T_SELECTED_LANG }}";
+</script>
+<script src="{% static 'lib/js/app.js' %}?v=20260704p"></script>
+</body>
+</html>

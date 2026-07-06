@@ -1,0 +1,43 @@
+<!--
+作者：北小菜
+官网：https://www.yuturuishi.com
+微信：bilibili_bxc
+哔哩哔哩主页：https://space.bilibili.com/487906612
+gitee地址：https://gitee.com/Vanishi/rebucca
+github地址：https://github.com/beixiaocai/rebucca
+-->
+
+{% extends "app/base.html" %}
+{% load static %}
+
+{% block title %}{{ T.nav_setup_hub|default:'设备与算法' }} - {{ settings.name|default:"Rebucca" }}{% endblock %}
+{% block nav_setup %}active{% endblock %}
+{% block page_title %}{{ T.nav_setup_hub|default:'设备与算法' }}{% endblock %}
+
+{% block content %}
+<div class="hub-page">
+  <p class="hub-intro">{{ T.hub_setup_intro|default:'接入摄像头并配置分析能力。顺序建议：先加摄像头 → 配置布控 → 选择算法。' }}</p>
+  <div class="hub-grid">
+    <a href="/stream/index" class="hub-card">
+      <div class="hub-icon">📹</div>
+      <div class="hub-title">{{ T.hub_card_stream|default:'摄像头管理' }}</div>
+      <div class="hub-desc">{{ T.hub_card_stream_desc|default:'添加/编辑摄像头，开启拉流与录像' }}</div>
+    </a>
+    <a href="/control/index" class="hub-card">
+      <div class="hub-icon">⬡</div>
+      <div class="hub-title">{{ T.hub_card_control|default:'布控管理' }}</div>
+      <div class="hub-desc">{{ T.hub_card_control_desc|default:'在画面上画多边形，限定分析范围' }}</div>
+    </a>
+    <a href="/algorithm/index" class="hub-card">
+      <div class="hub-icon">🧠</div>
+      <div class="hub-title">{{ T.hub_card_algorithm|default:'业务算法' }}</div>
+      <div class="hub-desc">{{ T.hub_card_algorithm_desc|default:'配置业务算法：模型推理 + 后处理逻辑' }}</div>
+    </a>
+    <a href="/smallmodel/index" class="hub-card">
+      <div class="hub-icon">⊞</div>
+      <div class="hub-title">{{ T.hub_card_small_model|default:'小模型管理' }}</div>
+      <div class="hub-desc">{{ T.hub_card_small_model_desc|default:'上传/管理 YOLO 检测模型' }}</div>
+    </a>
+  </div>
+</div>
+{% endblock %}

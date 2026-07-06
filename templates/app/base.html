@@ -1,0 +1,161 @@
+<!--
+作者：北小菜
+官网：https://www.yuturuishi.com
+微信：bilibili_bxc
+哔哩哔哩主页：https://space.bilibili.com/487906612
+gitee地址：https://gitee.com/Vanishi/rebucca
+github地址：https://github.com/beixiaocai/rebucca
+-->
+
+﻿{% load static %}
+<!DOCTYPE html>
+<html lang="{{ T_SELECTED_LANG }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <title>{% block title %}{{ settings.name|default:"Rebucca" }}{% endblock %}</title>
+    <link rel="icon" href="{{ settings.logo_url|default:'/static/images/logo.png' }}">
+    <link rel="stylesheet" href="{% static 'lib/css/style.css' %}?v=20260704p">
+    <script>
+    (function () {
+        try {
+            var expanded = localStorage.getItem('rebucca_sidebar_expanded') === '1';
+            document.documentElement.classList.add(expanded ? 'sidebar-expanded' : 'sidebar-collapsed');
+        } catch (e) {
+            document.documentElement.classList.add('sidebar-collapsed');
+        }
+    })();
+    </script>
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+
+<!-- ========== 侧边栏 ========== -->
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <button type="button" class="sidebar-toggle" id="sidebarToggle"
+                aria-label="{{ T.sidebar_expand|default:'展开侧边栏' }}"
+                title="{{ T.sidebar_expand|default:'展开侧边栏' }}">
+            <svg class="icon-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="M14 9l3 3-3 3"/></svg>
+            <svg class="icon-collapse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="M13 9l-3 3 3 3"/></svg>
+        </button>
+        <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        <span class="brand-name">{{ settings.name|default:"Rebucca" }}</span>
+    </div>
+    <nav class="sidebar-nav">
+        <div class="nav-group-title">{{ T.nav_daily|default:'日常使用' }}</div>
+        <a href="/" class="nav-item {% block nav_home %}{% endblock %}" title="{{ T.nav_dashboard|default:'控制面板' }}">
+            <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg></span><span class="nav-label">{{ T.nav_dashboard|default:'控制面板' }}</span>
+        </a>
+        <a href="/stream/index" class="nav-item {% block nav_stream %}{% endblock %}" title="{{ T.nav_stream|default:'视频管理' }}">
+            <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></span><span class="nav-label">{{ T.nav_stream|default:'视频管理' }}</span>
+        </a>
+        <a href="/stream/online" class="nav-item {% block nav_online %}{% endblock %}" title="{{ T.nav_live_preview|default:'实时画面' }}">
+            <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="nav-label">{{ T.nav_live_preview|default:'实时画面' }}</span>
+        </a>
+        <a href="/smallmodel/index" class="nav-item {% block nav_small_models %}{% endblock %}" title="{{ T.nav_small_models|default:'小模型管理' }}">
+            <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span><span class="nav-label">{{ T.nav_small_models|default:'小模型管理' }}</span>
+        </a>
+        <a href="/llm/index" class="nav-item {% block nav_llm %}{% endblock %}" title="{{ T.nav_llm|default:'大模型管理' }}">
+            <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73A2 2 0 0 1 12 2z"/><circle cx="9" cy="14" r="1.5"/><circle cx="15" cy="14" r="1.5"/></svg></span><span class="nav-label">{{ T.nav_llm|default:'大模型管理' }}</span>
+        </a>
+        <a href="/algorithm/index" class="nav-item {% block nav_algorithms %}{% endblock %}" title="{{ T.nav_biz_algorithms|default:T.nav_algorithms|default:'业务算法' }}">
+            <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/><circle cx="9" cy="9" r="1.5" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="15" r="1.5" fill="currentColor" stroke="none"/><line x1="9" y1="10.5" x2="12" y2="13.5"/><line x1="15" y1="10.5" x2="12" y2="13.5"/></svg></span><span class="nav-label">{{ T.nav_biz_algorithms|default:T.nav_algorithms|default:'业务算法' }}</span>
+        </a>
+        <a href="/control/index" class="nav-item {% block nav_control %}{% endblock %}" title="{{ T.nav_control|default:'布控管理' }}">
+            <span class="nav-icon"><svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg></span><span class="nav-label">{{ T.nav_control|default:'布控管理' }}</span>
+        </a>
+
+        <div class="nav-group-title">{{ T.nav_insight|default:'分析与告警' }}</div>
+        <a href="/alarm/index" class="nav-item {% block nav_alarm %}{% endblock %}" title="{{ T.nav_alarm|default:'报警管理' }}">
+            <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span><span class="nav-label">{{ T.nav_alarm|default:'报警管理' }}</span>
+        </a>
+
+        <div class="nav-group-title">{{ T.nav_system|default:'系统' }}</div>
+        <a href="/user/index" class="nav-item {% block nav_user %}{% endblock %}" title="{{ T.nav_users|default:'用户管理' }}">
+            <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><span class="nav-label">{{ T.nav_users|default:'用户管理' }}</span>
+        </a>
+        <a href="/system/config" class="nav-item {% block nav_config %}{% endblock %}" title="{{ T.nav_config|default:'启动配置' }}">
+            <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span><span class="nav-label">{{ T.nav_config|default:'启动配置' }}</span>
+        </a>
+        <a href="/version/index" class="nav-item {% block nav_about %}{% endblock %}" title="{{ T.nav_about|default:'关于系统' }}">
+            <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span><span class="nav-label">{{ T.nav_about|default:'关于系统' }}</span>
+        </a>
+    </nav>
+    <div class="sidebar-footer">
+        {% if settings.is_show_author %}
+        <a href="{{ settings.author_link|default:'#' }}" target="_blank">{{ settings.author|default:"宇图瑞视" }}</a>
+        {% endif %}
+    </div>
+</aside>
+
+<!-- ========== 移动端遮罩层 ========== -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<!-- ========== 主内容区 ========== -->
+<div class="main">
+    <!-- 顶栏 -->
+    <header class="topbar {% block topbar_class %}{% endblock %}">
+        <div class="topbar-left">
+            <button type="button" class="sidebar-mobile-toggle" id="sidebarMobileToggle"
+                    aria-label="{{ T.sidebar_open|default:'打开侧边栏' }}" title="{{ T.sidebar_open|default:'打开侧边栏' }}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            {% block topbar_left %}
+            <span class="topbar-title">{% block page_title %}{% endblock %}</span>
+            {% endblock %}
+        </div>
+        <div class="topbar-right">
+            {% block topbar_tools %}{% endblock %}
+            <!-- 语言切换 -->
+            <div class="lang-switch">
+                <div class="lang-switch-btn" onclick="toggleDropdown('.lang-switch-dropdown')">
+                    <span>🌐</span>
+                    <span id="currentLangName">
+                        {% for lang in T_SETTINGS_LANGUAGES %}
+                            {% if lang.code == T_SELECTED_LANG %}{{ lang.name }}{% endif %}
+                        {% endfor %}
+                    </span>
+                    <span style="font-size:10px">▾</span>
+                </div>
+                <div class="lang-switch-dropdown">
+                    {% for lang in T_SETTINGS_LANGUAGES %}
+                    <div class="lang-item {% if lang.code == T_SELECTED_LANG %}active{% endif %}"
+                         onclick="switchLang('{{ lang.code }}')">{{ lang.name }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+            <!-- 用户菜单 -->
+            <div class="user-menu">
+                <div class="user-menu-btn" onclick="toggleDropdown('.user-dropdown')">
+                    <div class="user-avatar">{{ current_user.username|default:"A"|slice:":1"|upper }}</div>
+                    <span class="user-name">{{ current_user.username|default:"admin" }}</span>
+                    <span style="font-size:10px;color:var(--c-text-tertiary)">▾</span>
+                </div>
+                <div class="user-dropdown">
+                    <div class="dropdown-item" onclick="location.href='/logout'">
+                        <span>⏻</span><span>{{ T.btn_logout|default:'退出登录' }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 内容区 -->
+    <main class="content {% block content_class %}{% endblock %}">
+        <div class="content-wrap">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+</div>
+
+<script>
+// 语言字典
+var T = {{ T_JSON|safe }};
+var T_SELECTED_LANG = "{{ T_SELECTED_LANG }}";
+</script>
+<script src="{% static 'lib/js/app.js' %}?v=20260704p"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

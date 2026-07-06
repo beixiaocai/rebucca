@@ -1,0 +1,339 @@
+{% extends "app/base.html" %}
+{% load static %}
+
+{% block title %}{{ T.nav_llm|default:'大模型管理' }} - {{ settings.name|default:"Rebucca" }}{% endblock %}
+{% block nav_llm %}active{% endblock %}
+{% block page_title %}{{ T.nav_llm|default:'大模型管理' }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.llm-page{max-width:1200px;margin:0 auto;}
+.llm-card{background:#fff;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.05);overflow:hidden;}
+.llm-head{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;
+  background:linear-gradient(135deg,#f8fbfa 0%,#f0f9f6 100%);border-bottom:1px solid var(--c-border-light,#eef2f5);gap:10px;flex-wrap:wrap;}
+.llm-head h3{margin:0;font-size:15px;font-weight:600;color:#2c3e50;display:flex;align-items:center;gap:8px;}
+.llm-head h3 .dot{width:8px;height:8px;border-radius:50%;background:#169F85;box-shadow:0 0 0 3px rgba(22,159,133,.15);}
+.llm-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.btn{padding:7px 14px;font-size:12px;border-radius:6px;border:1px solid var(--c-border,#dcdfe6);background:#fff;cursor:pointer;transition:.15s;}
+.btn:hover{color:#169F85;border-color:#169F85;background:#f0f9f6;}
+.btn-primary{background:linear-gradient(135deg,#14b89a 0%,#169F85 100%);color:#fff;border-color:transparent;}
+.btn-primary:hover{background:#0e7a65;color:#fff;}
+.btn-ghost{background:#fff;color:#64748b;}
+.llm-table{width:100%;border-collapse:collapse;}
+.llm-table th,.llm-table td{padding:10px 14px;font-size:13px;text-align:left;border-bottom:1px solid #f3f4f6;}
+.llm-table th{background:#fafbfc;color:#6b7280;font-weight:600;font-size:12px;}
+.llm-table tr:hover td{background:#f9fafb;}
+.tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;}
+.tag-on{background:#d1fae5;color:#065f46;}
+.tag-off{background:#fef2f2;color:#991b1b;}
+.llm-actions{display:flex;gap:6px;flex-wrap:wrap;}
+.llm-actions .btn{padding:4px 10px;font-size:11px;}
+.llm-empty{padding:48px 20px;text-align:center;color:#9ca3af;font-size:14px;}
+.llm-code{font-family:Consolas,Monaco,monospace;font-size:12px;color:#374151;background:#f3f4f6;padding:2px 6px;border-radius:4px;}
+.llm-pagination{display:flex;justify-content:center;align-items:center;gap:6px;padding:16px;flex-wrap:wrap;}
+.llm-pagination a,.llm-pagination span{padding:6px 12px;border-radius:6px;font-size:13px;text-decoration:none;color:#64748b;}
+.llm-pagination a:hover{background:#f0f9f6;color:#169F85;}
+.llm-pagination .cur{background:#ecfdf5;color:#169F85;font-weight:600;}
+
+/* 大模型编辑弹框 */
+.llm-modal-overlay{position:fixed;inset:0;z-index:400;background:rgba(15,23,42,.38);backdrop-filter:blur(5px);
+  display:none;align-items:center;justify-content:center;padding:20px;}
+.llm-modal-overlay.show{display:flex;}
+.llm-modal{width:min(520px,96vw);max-height:92vh;background:#fff;border-radius:14px;
+  box-shadow:0 20px 60px rgba(15,23,42,.18);border:1px solid var(--c-border,#e2e8f0);
+  display:flex;flex-direction:column;overflow:hidden;animation:llmModalIn .22s ease;}
+@keyframes llmModalIn{from{opacity:0;transform:scale(.97) translateY(8px)}to{opacity:1;transform:none}}
+.llm-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  padding:18px 22px 16px;border-bottom:1px solid var(--c-border-light,#eef2f5);
+  background:linear-gradient(135deg,#f8fbfa 0%,#f0f9f6 100%);}
+.llm-modal-title{margin:0;font-size:16px;font-weight:600;color:#1e293b;display:flex;align-items:center;gap:8px;}
+.llm-modal-title::before{content:'';width:8px;height:8px;border-radius:50%;background:#169F85;
+  box-shadow:0 0 0 3px rgba(22,159,133,.15);flex-shrink:0;}
+.llm-modal-sub{margin:6px 0 0;font-size:12px;color:#64748b;line-height:1.5;}
+.llm-modal-close{width:34px;height:34px;border:1px solid var(--c-border,#e2e8f0);border-radius:9px;
+  background:#fff;color:#64748b;font-size:20px;line-height:1;cursor:pointer;transition:.15s;flex-shrink:0;}
+.llm-modal-close:hover{border-color:#169F85;color:#169F85;background:#f0f9f6;}
+.llm-modal-body{padding:18px 22px;overflow:auto;flex:1;background:#fff;}
+.llm-section{margin-bottom:18px;}
+.llm-section:last-child{margin-bottom:0;}
+.llm-section-title{font-size:11px;font-weight:700;color:#169F85;text-transform:uppercase;letter-spacing:.06em;
+  margin-bottom:12px;padding-bottom:6px;border-bottom:1px dashed #e2e8f0;}
+.llm-field{margin-bottom:14px;}
+.llm-field:last-child{margin-bottom:0;}
+.llm-field label{display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:6px;}
+.llm-field label .req{color:#ef4444;margin-left:2px;}
+.llm-input{width:100%;padding:10px 12px;font-size:13px;border:1px solid #e2e8f0;border-radius:8px;
+  background:#fff;color:#1e293b;transition:border-color .15s,box-shadow .15s;}
+.llm-input:focus{outline:none;border-color:#169F85;box-shadow:0 0 0 3px rgba(22,159,133,.12);}
+.llm-input:disabled{background:#f8fafc;color:#94a3b8;cursor:not-allowed;}
+.llm-input-code{font-family:Consolas,Monaco,monospace;font-size:12px;}
+.llm-field-row{display:grid;grid-template-columns:1fr 120px;gap:12px;}
+@media(max-width:480px){.llm-field-row{grid-template-columns:1fr;}}
+.llm-toggle-row{display:flex;gap:0;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;background:#f8fafc;padding:3px;}
+.llm-toggle{flex:1;padding:8px 12px;font-size:12px;font-weight:600;border:none;background:transparent;
+  color:#64748b;cursor:pointer;border-radius:6px;transition:.15s;}
+.llm-toggle.active{background:#fff;color:#0e7a65;box-shadow:0 1px 3px rgba(0,0,0,.08);}
+.llm-modal-foot{padding:14px 22px;border-top:1px solid var(--c-border-light,#eef2f5);
+  display:flex;justify-content:flex-end;gap:10px;background:#fafbfc;}
+
+.test-frame{width:min(920px,96vw);height:min(620px,88vh);border:none;display:block;}
+.llm-modal-overlay.test-overlay .llm-modal{width:min(960px,98vw);}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="llm-page">
+  <div class="llm-card">
+    <div class="llm-head">
+      <h3><span class="dot"></span>{{ T.llm_title|default:'大模型管理' }}</h3>
+      <div class="llm-toolbar">
+        <button type="button" class="btn btn-primary" onclick="openAddModal()">{{ T.llm_add|default:'添加' }}</button>
+        <button type="button" class="btn" onclick="location.reload()">{{ T.llm_refresh|default:'刷新' }}</button>
+      </div>
+    </div>
+    {% if data %}
+    <table class="llm-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>{{ T.llm_col_code|default:'编号' }}</th>
+          <th>{{ T.llm_model_name|default:'模型名称' }}</th>
+          <th>{{ T.llm_timeout|default:'超时' }}</th>
+          <th>{{ T.llm_enabled_label|default:'状态' }}</th>
+          <th>{{ T.llm_col_updated|default:'更新时间' }}</th>
+          <th>{{ T.llm_col_actions|default:'操作' }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in data %}
+        <tr>
+          <td>{{ d.id }}</td>
+          <td><span class="llm-code">{{ d.code }}</span></td>
+          <td>{{ d.model_name }}</td>
+          <td>{{ d.timeout }}{{ T.llm_sec_unit|default:'秒' }}</td>
+          <td>
+            {% if d.state == 1 %}
+            <span class="tag tag-on">{{ T.llm_state_enabled|default:'启用' }}</span>
+            {% else %}
+            <span class="tag tag-off">{{ T.llm_state_disabled|default:'禁用' }}</span>
+            {% endif %}
+          </td>
+          <td>{{ d.last_update_time }}</td>
+          <td>
+            <div class="llm-actions">
+              <button type="button" class="btn" onclick="openEditModal('{{ d.code }}')">{{ T.btn_edit|default:'编辑' }}</button>
+              <button type="button" class="btn" onclick="openTestModal('{{ d.code }}')">{{ T.llm_test_btn|default:'测试' }}</button>
+              <button type="button" class="btn" onclick="deleteLLM('{{ d.code }}')">{{ T.btn_delete|default:'删除' }}</button>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div class="llm-pagination">
+      <span>{{ T.llm_page_total|default:'共' }} {{ pageData.count }} {{ T.llm_page_items|default:'条' }}</span>
+      {% for d in pageData.pageLabels %}
+        {% if d.cur == 1 %}
+        <span class="cur">{{ d.name }}</span>
+        {% else %}
+        <a href="/llm/index?p={{ d.page }}&ps={{ pageData.page_size }}">{{ d.name }}</a>
+        {% endif %}
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="llm-empty">{{ T.llm_no_data|default:'暂无大模型' }}</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="llm-modal-overlay" id="llmModal" onclick="if(event.target===this)closeLLMModal()">
+  <div class="llm-modal" role="dialog">
+    <div class="llm-modal-head">
+      <div>
+        <h3 class="llm-modal-title" id="modalTitle">{{ T.llm_modal_add_title|default:'添加大模型' }}</h3>
+        <p class="llm-modal-sub" id="modalSub">{{ T.llm_modal_add_sub|default:'填写 OpenAI 兼容 API 连接信息' }}</p>
+      </div>
+      <button type="button" class="llm-modal-close" onclick="closeLLMModal()" aria-label="close">&times;</button>
+    </div>
+    <div class="llm-modal-body">
+      <input type="hidden" id="input_inference_tool" value="OpenAI">
+      <div class="llm-section">
+        <div class="llm-section-title">{{ T.llm_section_basic|default:'基本信息' }}</div>
+        <div class="llm-field">
+          <label>{{ T.llm_col_code|default:'编号' }}</label>
+          <input type="text" class="llm-input llm-input-code" id="input_code" disabled>
+        </div>
+        <div class="llm-field">
+          <label>{{ T.llm_model_name|default:'模型名称' }} <span class="req">*</span></label>
+          <input type="text" class="llm-input" id="input_model_name" placeholder="{{ T.llm_input_model_name|default:'如 gpt-4o、qwen-vl-max' }}">
+        </div>
+      </div>
+      <div class="llm-section">
+        <div class="llm-section-title">{{ T.llm_section_api|default:'API 连接' }}</div>
+        <div class="llm-field">
+          <label>{{ T.llm_api_url|default:'API 地址' }} <span class="req">*</span></label>
+          <input type="text" class="llm-input" id="input_api_url" placeholder="https://api.openai.com/v1">
+        </div>
+        <div class="llm-field-row">
+          <div class="llm-field">
+            <label>{{ T.llm_api_key|default:'API 密钥' }} <span class="req">*</span></label>
+            <input type="password" class="llm-input" id="input_api_key" placeholder="sk-...">
+          </div>
+          <div class="llm-field">
+            <label>{{ T.llm_timeout_sec|default:'超时(秒)' }} <span class="req">*</span></label>
+            <input type="number" class="llm-input" id="input_timeout" value="30" min="5" max="600">
+          </div>
+        </div>
+      </div>
+      <div class="llm-section">
+        <div class="llm-section-title">{{ T.llm_section_status|default:'运行状态' }}</div>
+        <div class="llm-field">
+          <label>{{ T.llm_enabled_label|default:'是否启用' }}</label>
+          <div class="llm-toggle-row" id="stateToggle">
+            <button type="button" class="llm-toggle active" data-val="1" onclick="setLlmState(1)">{{ T.llm_state_enabled|default:'启用' }}</button>
+            <button type="button" class="llm-toggle" data-val="0" onclick="setLlmState(0)">{{ T.llm_state_disabled|default:'禁用' }}</button>
+          </div>
+          <input type="hidden" id="input_state" value="1">
+        </div>
+      </div>
+    </div>
+    <div class="llm-modal-foot">
+      <button type="button" class="btn btn-ghost" onclick="closeLLMModal()">{{ T.btn_cancel|default:'取消' }}</button>
+      <button type="button" class="btn btn-primary" onclick="submitLLMForm()">{{ T.btn_submit|default:'提交' }}</button>
+    </div>
+  </div>
+</div>
+
+<div class="llm-modal-overlay test-overlay" id="testModal" onclick="if(event.target===this)closeTestModal()">
+  <div class="llm-modal">
+    <div class="llm-modal-head">
+      <div>
+        <h3 class="llm-modal-title">{{ T.llm_test_title|default:'大模型测试' }}</h3>
+        <p class="llm-modal-sub">{{ T.llm_test_sub|default:'上传图片进行视觉推理测试' }}</p>
+      </div>
+      <button type="button" class="llm-modal-close" onclick="closeTestModal()" aria-label="close">&times;</button>
+    </div>
+    <div class="llm-modal-body" style="padding:0;">
+      <iframe id="testIframe" class="test-frame" src="about:blank"></iframe>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var currentHandle = 'add';
+var currentCode = '';
+
+function generateCode() {
+  var n = Math.floor(Math.random() * 9000) + 1000;
+  var chars = '0123456789abcdef', s = '';
+  for (var i = 0; i < 6; i++) s += chars.charAt(Math.floor(Math.random() * chars.length));
+  return 'llm' + n + s;
+}
+
+function setLlmState(val) {
+  document.getElementById('input_state').value = String(val);
+  document.querySelectorAll('#stateToggle .llm-toggle').forEach(function(btn) {
+    btn.classList.toggle('active', parseInt(btn.getAttribute('data-val'), 10) === val);
+  });
+}
+
+function openAddModal() {
+  currentHandle = 'add';
+  currentCode = generateCode();
+  document.getElementById('modalTitle').textContent = _t('llm_modal_add_title', '添加大模型');
+  document.getElementById('modalSub').textContent = _t('llm_modal_add_sub', '填写 OpenAI 兼容 API 连接信息');
+  document.getElementById('input_code').value = currentCode;
+  document.getElementById('input_model_name').value = '';
+  document.getElementById('input_inference_tool').value = 'OpenAI';
+  document.getElementById('input_api_url').value = '';
+  document.getElementById('input_api_key').value = '';
+  document.getElementById('input_timeout').value = '30';
+  setLlmState(1);
+  document.getElementById('llmModal').classList.add('show');
+}
+
+function openEditModal(code) {
+  currentHandle = 'edit';
+  currentCode = code;
+  document.getElementById('modalTitle').textContent = _t('llm_modal_edit_title', '编辑大模型');
+  document.getElementById('modalSub').textContent = _t('llm_modal_edit_sub', '修改大模型连接参数');
+  Api.get('/llm/openInfo', { code: code }).then(function(res) {
+    if (res.code === 1000 && res.info) {
+      var info = res.info;
+      document.getElementById('input_code').value = info.code;
+      document.getElementById('input_model_name').value = info.model_name || '';
+      document.getElementById('input_inference_tool').value = 'OpenAI';
+      document.getElementById('input_api_url').value = info.api_url || '';
+      document.getElementById('input_api_key').value = info.api_key || '';
+      document.getElementById('input_timeout').value = info.timeout || 30;
+      setLlmState(info.state === 0 ? 0 : 1);
+      document.getElementById('llmModal').classList.add('show');
+    } else {
+      showToast(res.msg || _t('llm_not_exist', '大模型不存在'), 'error');
+    }
+  });
+}
+
+function closeLLMModal() {
+  document.getElementById('llmModal').classList.remove('show');
+}
+
+function submitLLMForm() {
+  var payload = {
+    code: currentCode,
+    model_name: document.getElementById('input_model_name').value.trim(),
+    inference_tool: 'OpenAI',
+    api_url: document.getElementById('input_api_url').value.trim(),
+    api_key: document.getElementById('input_api_key').value.trim(),
+    timeout: parseInt(document.getElementById('input_timeout').value, 10) || 30,
+    state: parseInt(document.getElementById('input_state').value, 10)
+  };
+  if (!payload.model_name) { showToast(_t('llm_input_model_name', '请输入模型名称'), 'error'); return; }
+  if (!payload.api_url) { showToast(_t('llm_input_api_url', '请输入API地址'), 'error'); return; }
+  if (!payload.api_key) { showToast(_t('llm_input_api_key', '请输入API密钥'), 'error'); return; }
+  var url = currentHandle === 'add' ? '/llm/openAdd' : '/llm/openEdit';
+  Api.post(url, payload).then(function(res) {
+    if (res.code === 1000) {
+      showToast(res.msg, 'success');
+      setTimeout(function() { location.reload(); }, 600);
+    } else {
+      showToast(res.msg, 'error');
+    }
+  });
+}
+
+function deleteLLM(code) {
+  if (!confirm(_t('llm_confirm_delete', '确定删除该大模型吗？'))) return;
+  Api.post('/llm/openDel', { code: code }).then(function(res) {
+    if (res.code === 1000) {
+      showToast(res.msg, 'success');
+      setTimeout(function() { location.reload(); }, 600);
+    } else {
+      showToast(res.msg, 'error');
+    }
+  });
+}
+
+function openTestModal(code) {
+  document.getElementById('testIframe').src = '/llm/test?code=' + encodeURIComponent(code);
+  document.getElementById('testModal').classList.add('show');
+}
+
+function closeTestModal() {
+  document.getElementById('testIframe').src = 'about:blank';
+  document.getElementById('testModal').classList.remove('show');
+}
+
+document.getElementById('testModal').addEventListener('click', function(e) {
+  if (e.target === this) closeTestModal();
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeTestModal();
+    closeLLMModal();
+  }
+});
+</script>
+{% endblock %}

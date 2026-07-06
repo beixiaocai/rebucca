@@ -1,0 +1,275 @@
+<!--
+作者：北小菜
+官网：https://www.yuturuishi.com
+微信：bilibili_bxc
+哔哩哔哩主页：https://space.bilibili.com/487906612
+gitee地址：https://gitee.com/Vanishi/rebucca
+github地址：https://github.com/beixiaocai/rebucca
+-->
+
+{% extends "app/base.html" %}
+{% load static %}
+
+{% block title %}{{ T.nav_alarm|default:'报警管理' }} - {{ settings.name|default:"Rebucca" }}{% endblock %}
+{% block nav_alarm %}active{% endblock %}
+{% block page_title %}{{ T.nav_alarm|default:'报警管理' }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.alarm-page{max-width:1280px;margin:0 auto;}
+.alarm-card{background:#fff;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.05);overflow:hidden;}
+.alarm-head{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:linear-gradient(135deg,#fef2f2 0%,#fff5f5 100%);border-bottom:1px solid #fee2e2;gap:10px;flex-wrap:wrap;}
+.alarm-head h3{margin:0;font-size:15px;font-weight:600;color:#991b1b;display:flex;align-items:center;gap:8px;}
+.alarm-head h3 .dot{width:8px;height:8px;border-radius:50%;background:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.15);animation:alarmPulse 1.5s infinite;}
+@keyframes alarmPulse{0%,100%{box-shadow:0 0 0 3px rgba(220,38,38,.15);}50%{box-shadow:0 0 0 6px rgba(220,38,38,.05);}}
+.alarm-head .tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.alarm-head select{padding:6px 10px;font-size:12px;border:1px solid #fca5a5;border-radius:6px;background:#fff;}
+.btn{padding:7px 14px;font-size:12px;border-radius:6px;border:1px solid var(--c-border,#dcdfe6);background:#fff;cursor:pointer;}
+.btn:hover{color:#b91c1c;border-color:#fca5a5;background:#fef2f2;}
+.alarm-auto{font-size:11px;color:#9ca3af;}
+.alarm-body{padding:16px 20px;min-height:200px;}
+.alarm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;}
+.alarm-item{border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;background:#fff;transition:.15s;display:flex;flex-direction:column;}
+.alarm-item:hover{border-color:#dc2626;box-shadow:0 6px 16px rgba(220,38,38,.15);transform:translateY(-2px);}
+.alarm-item .thumb{position:relative;background:#000;aspect-ratio:16/9;overflow:hidden;cursor:zoom-in;}
+.alarm-item .thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.alarm-item .thumb .noimg{display:flex;align-items:center;justify-content:center;height:100%;color:#6b7280;font-size:11px;background:#f3f4f6;}
+.alarm-item .tag{position:absolute;top:6px;left:6px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(220,38,38,.92);color:#fff;}
+.alarm-item .tag.loiter{background:rgba(217,119,6,.92);}
+.alarm-item .tag.motion{background:rgba(99,102,241,.85);}
+.alarm-item .zoom{position:absolute;bottom:4px;right:4px;font-size:12px;color:#fff;background:rgba(0,0,0,.5);border-radius:3px;padding:0 5px;line-height:18px;}
+.alarm-item .info{padding:9px 11px;display:flex;flex-direction:column;gap:4px;flex:1;}
+.alarm-item .info .lbl{font-size:13px;font-weight:600;color:#1f2937;}
+.alarm-item .info .meta{font-size:11px;color:#6b7280;display:flex;justify-content:space-between;gap:6px;}
+.alarm-item .info .reason{font-size:11px;color:#4b5563;line-height:1.45;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+.alarm-item .info .algo{font-size:11px;color:#7c3aed;font-weight:600;}
+.alarm-item .info .zone{font-size:11px;color:#0369a1;}
+.alarm-item .row-bot{display:flex;align-items:center;justify-content:space-between;padding:6px 11px;border-top:1px solid #f3f4f6;background:#fafafa;}
+.alarm-item .row-bot .chk{display:flex;align-items:center;gap:6px;font-size:11px;color:#6b7280;cursor:pointer;}
+.alarm-item .row-bot .chk input{cursor:pointer;width:14px;height:14px;}
+.alarm-item .row-bot .del{border:none;background:transparent;color:#9ca3af;cursor:pointer;font-size:14px;padding:2px 6px;border-radius:4px;transition:.15s;}
+.alarm-item .row-bot .del:hover{color:#dc2626;background:#fef2f2;}
+.alarm-empty{padding:48px 20px;text-align:center;color:#9ca3af;font-size:13px;}
+.alarm-empty .ic{font-size:32px;display:block;margin-bottom:8px;opacity:.4;}
+.alarm-loading{padding:48px 20px;text-align:center;color:#9ca3af;font-size:13px;}
+/* 大图预览 */
+.snap-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:10000;display:flex;align-items:center;justify-content:center;padding:24px;cursor:zoom-out;}
+.snap-overlay img{max-width:94%;max-height:94%;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,.5);}
+.snap-overlay .cap{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);color:#fff;font-size:12px;background:rgba(0,0,0,.5);padding:6px 14px;border-radius:20px;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="alarm-page">
+  <div class="alarm-card">
+    <div class="alarm-head">
+      <h3><span class="dot"></span>{{ T.nav_alarm|default:'报警管理' }}</h3>
+      <div class="tools">
+        <select id="fStream" onchange="onAlarmFilterChange()">
+          <option value="">{{ T.zone_all_cameras|default:'全部摄像头' }}</option>
+        </select>
+        <select id="fType" onchange="onAlarmFilterChange()">
+          <option value="">{{ T.alarm_all_types|default:'全部报警' }}</option>
+          <option value="entered_zone">{{ T.ev_entered_zone|default:'进入区域' }}</option>
+          <option value="loiter">{{ T.ev_loiter|default:'滞留告警' }}</option>
+        </select>
+        <button class="btn" onclick="loadAlarms()">{{ T.btn_refresh_symbol|default:'↻ 刷新' }}</button>
+        <button class="btn" onclick="toggleSelectAll()" id="btnSelectAll">{{ T.timeline_select_all|default:'全选' }}</button>
+        <button class="btn" onclick="batchDel()">{{ T.timeline_batch_del|default:'批量删除' }}</button>
+        <button class="btn" onclick="clearAlarms()" style="color:#b91c1c;border-color:#fca5a5;background:#fef2f2;">{{ T.timeline_clear_alarms|default:'清空报警' }}</button>
+      </div>
+    </div>
+    <div class="alarm-body" id="alarmBody">
+      <div class="alarm-empty"><span class="ic">◧</span>{{ T.alarm_empty_hint|default:'暂无报警，启动分析后将自动捕获报警画面' }}</div>
+    </div>
+    <div class="card-body" style="padding-top:0">
+      <div class="pagination" id="pagination"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var g_streams = [];
+var g_selectedIds = new Set();
+var g_currentPage = 1;
+var g_pageSize = 12;
+var ALARM_TYPES = ['entered_zone', 'loiter'];
+
+function onAlarmFilterChange(){
+  g_currentPage = 1;
+  g_selectedIds.clear();
+  loadAlarms();
+}
+
+function loadStreams(cb){
+  Api.get('/open/getAllStreamData').then(function(res){
+    if(res && res.code===1000){ g_streams = res.data || []; if(cb) cb(); }
+  });
+}
+
+function fillStreamSelect(){
+  var sel = document.getElementById('fStream');
+  sel.innerHTML = '<option value="">'+_t('zone_all_cameras','全部摄像头')+'</option>';
+  g_streams.forEach(function(s){
+    var o = document.createElement('option');
+    o.value = (s.id != null && s.id !== '') ? String(s.id) : '';
+    if(!o.value) o.disabled = true;
+    o.textContent = s.nickname || s.name || ('#'+s.id);
+    sel.appendChild(o);
+  });
+}
+
+function parseMeta(s){ try{ return typeof s==='object'?s:JSON.parse(s||'{}'); }catch(e){ return {}; } }
+
+function evName(t){
+  var m = {
+    entered_zone: _t('ev_entered_zone','进入区域'),
+    loiter: _t('ev_loiter','滞留告警'),
+    motion: _t('ev_motion','运动')
+  };
+  return m[t] || t;
+}
+
+function loadAlarms(page){
+  if(page) g_currentPage = page;
+  var body = document.getElementById('alarmBody');
+  showLoading(body, _t('alarm_loading','加载中...'));
+  var p = { p: g_currentPage, ps: g_pageSize, alarm_only: 1 };
+  var sid = document.getElementById('fStream').value; if(sid) p.stream_id = sid;
+  var t = document.getElementById('fType').value; if(t) p.event_type = t;
+  Api.get('/alarm/openIndex', p).then(function(res){
+    var list = (res && res.code===1000 && res.data) ? res.data : [];
+    var pageData = (res && res.pageData) ? res.pageData : {};
+    // 清理失效的选中项
+    var validIds = {}; list.forEach(function(e){ validIds[e.id]=true; });
+    g_selectedIds.forEach(function(id){ if(!validIds[id]) g_selectedIds.delete(id); });
+    renderAlarms(list);
+    updateSelectAllBtn();
+    renderPagination(document.getElementById('pagination'), pageData, loadAlarms);
+  });
+}
+
+function renderAlarms(list){
+  var body = document.getElementById('alarmBody');
+  if(!list.length){
+    body.innerHTML = '<div class="alarm-empty"><span class="ic">◧</span>'+_t('alarm_empty_hint','暂无报警，启动分析后将自动捕获报警画面')+'</div>';
+    return;
+  }
+  var html = '<div class="alarm-grid">';
+  list.forEach(function(e){
+    var meta = parseMeta(e.metadata);
+    var isLoiter = e.event_type==='loiter';
+    var isMotion = e.event_type==='motion';
+    var tagCls = 'tag', tagTxt = evName(e.event_type);
+    if(isLoiter) tagCls = 'tag loiter';
+    else if(isMotion) tagCls = 'tag motion';
+    var snap = e.snapshot_path || meta.snapshot_path || '';
+    var thumb = snap
+      ? '<img src="/static/'+escapeHtml(snap)+'" alt="alarm"><span class="zoom">⤢</span>'
+      : '<div class="noimg">'+_t('zone_alarm_no_img','无快照')+'</div>';
+    var lbl = meta.label || (isMotion ? _t('zone_alarm_motion_target','运动目标') : _t('zone_alarm_unknown','未知目标'));
+    var bizAlgo = e.biz_algorithm_name || meta.biz_algorithm_name || '';
+    var reason = e.alarm_reason || e.description || meta.alarm_reason || '';
+    var zoneName = e.zone_name || meta.zone_name || '';
+    var dur = (meta.duration !== undefined && meta.duration>0) ? (_t('zone_alarm_duration','停留')+' '+Math.round(meta.duration)+'s') : '';
+    var tm = (e.timestamp||'').replace('T',' ').substring(5,16);
+    var checked = g_selectedIds.has(e.id) ? 'checked' : '';
+    var clickOpen = snap ? 'onclick="openSnap(\''+escapeHtml(snap)+'\',\''+escapeHtml((e.stream_name||'')+' · '+tagTxt+' · '+(reason||lbl)+' · '+tm)+'\')"' : '';
+    html += '<div class="alarm-item">'
+      + '<div class="thumb" '+clickOpen+'><span class="'+tagCls+'">'+tagTxt+'</span>'+thumb+'</div>'
+      + '<div class="info">'
+      +   '<span class="lbl">'+escapeHtml(lbl)+'</span>'
+      +   (bizAlgo?'<span class="algo">'+_t('alarm_biz_algorithm','所属算法')+'：'+escapeHtml(bizAlgo)+'</span>':'')
+      +   (zoneName?'<span class="zone">'+_t('alarm_zone_name','所属布控')+'：'+escapeHtml(zoneName)+'</span>':'')
+      +   (reason?'<span class="reason">'+_t('alarm_reason','报警原因')+'：'+escapeHtml(reason)+'</span>':'')
+      +   '<span class="meta"><span>'+escapeHtml(e.stream_name||('#'+e.stream_id))+'</span><span>'+tm+'</span></span>'
+      +   (dur?'<span class="meta dur">'+dur+'</span>':'')
+      + '</div>'
+      + '<div class="row-bot">'
+      +   '<label class="chk"><input type="checkbox" data-id="'+e.id+'" onchange="onCheckChange(this)" '+checked+'>'+_t('alarm_select','选中')+'</label>'
+      +   '<button class="del" onclick="delOne('+e.id+')" title="'+_t('btn_del','删除')+'">✕</button>'
+      + '</div>'
+      + '</div>';
+  });
+  html += '</div>';
+  body.innerHTML = html;
+}
+
+function openSnap(path, caption){
+  if(!path) return;
+  var ov = document.createElement('div');
+  ov.className = 'snap-overlay';
+  ov.innerHTML = '<img src="/static/'+escapeHtml(path)+'">'+(caption?'<div class="cap">'+escapeHtml(caption)+'</div>':'');
+  ov.onclick = function(){ document.body.removeChild(ov); };
+  document.body.appendChild(ov);
+}
+
+function onCheckChange(cb){
+  var id = parseInt(cb.getAttribute('data-id'),10);
+  if(cb.checked){ g_selectedIds.add(id); } else { g_selectedIds.delete(id); }
+  updateSelectAllBtn();
+}
+
+function updateSelectAllBtn(){
+  var btn = document.getElementById('btnSelectAll');
+  if(!btn) return;
+  var checks = document.querySelectorAll('.alarm-item .chk input');
+  var allChecked = checks.length>0 && Array.prototype.every.call(checks, function(c){ return c.checked; });
+  btn.textContent = allChecked ? _t('timeline_unselect_all','取消全选') : _t('timeline_select_all','全选');
+}
+
+function toggleSelectAll(){
+  var checks = document.querySelectorAll('.alarm-item .chk input');
+  if(!checks.length) return;
+  var allChecked = Array.prototype.every.call(checks, function(c){ return c.checked; });
+  checks.forEach(function(c){
+    c.checked = !allChecked;
+    var id = parseInt(c.getAttribute('data-id'),10);
+    if(c.checked){ g_selectedIds.add(id); } else { g_selectedIds.delete(id); }
+  });
+  updateSelectAllBtn();
+}
+
+function delOne(id){
+  if(!confirm(_t('timeline_del_confirm','确认删除该条事件及其快照？'))) return;
+  Api.post('/alarm/openDel', {id:id}).then(function(res){
+    if(res && res.code===1000){
+      g_selectedIds.delete(id);
+      showToast(_t('msg_success','操作成功'),'success');
+      loadAlarms();
+    } else { showToast((res&&res.msg)||'error','error'); }
+  });
+}
+
+function batchDel(){
+  if(g_selectedIds.size===0){ showToast(_t('timeline_no_selection','请先勾选要删除的事件'),'warning'); return; }
+  if(!confirm(_t('timeline_batch_confirm','确认删除选中的 {n} 条事件及其快照？').replace('{n}', g_selectedIds.size))) return;
+  var ids = Array.from(g_selectedIds);
+  Api.post('/alarm/openBatchDel', {ids:JSON.stringify(ids)}).then(function(res){
+    if(res && res.code===1000){
+      g_selectedIds.clear();
+      showToast(_t('msg_success','操作成功')+' ('+(res.data&&res.data.deleted||0)+')','success');
+      loadAlarms();
+    } else { showToast((res&&res.msg)||'error','error'); }
+  });
+}
+
+function clearAlarms(){
+  if(!confirm(_t('timeline_clear_confirm','确认清空所有报警事件（进入区域/滞留/运动）及其全部快照图片？此操作不可恢复！'))) return;
+  Api.post('/alarm/openClearAlarms', {}).then(function(res){
+    if(res && res.code===1000){
+      g_selectedIds.clear();
+      showToast(_t('msg_success','操作成功')+' ('+(res.data&&res.data.deleted||0)+')','success');
+      loadAlarms();
+    } else { showToast((res&&res.msg)||'error','error'); }
+  });
+}
+
+loadStreams(function(){
+  fillStreamSelect();
+  loadAlarms();
+});
+</script>
+{% endblock %}

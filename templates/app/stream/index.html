@@ -1,0 +1,1047 @@
+<!--
+作者：北小菜
+官网：https://www.yuturuishi.com
+微信：bilibili_bxc
+哔哩哔哩主页：https://space.bilibili.com/487906612
+gitee地址：https://gitee.com/Vanishi/rebucca
+github地址：https://github.com/beixiaocai/rebucca
+-->
+
+{% extends "app/base.html" %}
+{% load static %}
+
+{% block title %}{{ T.page_stream|default:'视频管理' }} - {{ settings.name|default:"Rebucca" }}{% endblock %}
+{% block nav_stream %}active{% endblock %}
+{% block page_title %}{{ T.page_stream|default:'视频管理' }}{% endblock %}
+
+{% block extra_head %}
+<style>
+/* 分组卡片 */
+.sg-wrap { display: flex; flex-direction: column; gap: 10px; }
+.sg-group {
+    background: #fff;
+    border: 1px solid var(--c-border-light, #eef2f5);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.sg-head {
+    display: flex;
+    align-items: center;
+    padding: 4px 16px;
+    background: #fff;
+    border-bottom: 1px solid var(--c-border-light, #eef2f5);
+    gap: 10px;
+}
+.sg-device {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1f2937;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+.sg-device::before {
+    content: '';
+    display: inline-block;
+    width: 3px;
+    height: 14px;
+    background: #169F85;
+    border-radius: 2px;
+}
+.sg-count {
+    background: #e6f7f3;
+    color: #0e7a65;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    min-width: 22px;
+    text-align: center;
+}
+.sg-toggle {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    background: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .2s;
+    flex-shrink: 0;
+    padding: 0;
+}
+.sg-toggle:hover { border-color: #169F85; color: #169F85; background: #f0f9f6; }
+.sg-toggle svg { width: 14px; height: 14px; transition: transform .25s; }
+.sg-toggle.open svg { transform: rotate(180deg); }
+.sg-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height .35s ease;
+}
+.sg-body.open {
+    max-height: 2000px;
+}
+.sg-body .data-table { margin: 0; table-layout: fixed; width: 100%; }
+.sg-body .table-wrap { padding: 0; }
+.sg-body .data-table td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* ID */
+.sg-body .data-table th:nth-child(1),
+.sg-body .data-table td:nth-child(1) { width: 60px; }
+/* 编号 */
+.sg-body .data-table th:nth-child(2),
+.sg-body .data-table td:nth-child(2) { width: 16%; }
+/* 接入协议 */
+.sg-body .data-table th:nth-child(3),
+.sg-body .data-table td:nth-child(3) { width: 10%; }
+/* 名称 */
+.sg-body .data-table th:nth-child(4),
+.sg-body .data-table td:nth-child(4) { width: 12%; }
+/* IP */
+.sg-body .data-table th:nth-child(5),
+.sg-body .data-table td:nth-child(5) { width: 11%; }
+/* 状态 */
+.sg-body .data-table th:nth-child(6),
+.sg-body .data-table td:nth-child(6) { width: 5%; }
+/* 更新时间 */
+.sg-body .data-table th:nth-child(7),
+.sg-body .data-table td:nth-child(7) { width: 13%; }
+/* 操作 */
+.sg-body .data-table th:nth-child(8),
+.sg-body .data-table td:nth-child(8) { width: 148px; }
+/* 操作列图标按钮 */
+.act-bar { display: flex; gap: 2px; align-items: center; justify-content: center; }
+.act-btn {
+    width: 30px; height: 30px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .15s;
+    color: #6b7280;
+    padding: 0;
+    text-decoration: none;
+}
+.act-btn:hover { background: #f3f4f6; color: #169F85; }
+.act-btn[disabled] { opacity: .35; cursor: not-allowed; pointer-events: none; }
+.act-btn.act-danger:hover { background: #fef2f2; color: #b91c1c; }
+.act-btn.act-on { color: #169F85; }
+.act-btn.act-on:hover { background: #e6f7f3; }
+.act-btn.act-rec-on { color: #dc2626; position: relative; }
+.act-btn.act-rec-on:hover { background: #fef2f2; }
+.act-btn.act-rec-on::after {
+    content: ''; position: absolute; top: 4px; right: 4px;
+    width: 6px; height: 6px; border-radius: 50%; background: #ef4444;
+    box-shadow: 0 0 0 2px #fff; animation: recPulse 1.4s infinite;
+}
+.act-btn.act-rec-idle { color: #d97706; }
+.act-btn.act-rec-idle:hover { background: #fffbeb; }
+.act-btn svg { width: 16px; height: 16px; pointer-events: none; }
+@keyframes recPulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+/* 状态指示点 */
+.si { display: inline-block; width: 8px; height: 8px; border-radius: 50%; vertical-align: middle; }
+.si-on { background: #22c55e; box-shadow: 0 0 4px rgba(34,197,94,.4); }
+.si-off { background: #d1d5db; }
+.sg-empty {
+    text-align: center;
+    padding: 48px 20px;
+    color: #9ca3af;
+    font-size: 14px;
+    background: #fff;
+    border-radius: 8px;
+    border: 1px solid var(--c-border-light, #eef2f5);
+}
+/* 批量操作下拉 */
+.batch-dropdown { position: relative; display: inline-block; }
+.batch-btn {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    background: #fff;
+    color: #374151;
+    font-size: 13px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all .15s;
+}
+.batch-btn:hover { border-color: #169F85; color: #169F85; }
+.batch-btn svg { width: 12px; height: 12px; transition: transform .2s; }
+.batch-dropdown.open .batch-btn svg { transform: rotate(180deg); }
+.batch-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.1);
+    min-width: 160px;
+    z-index: 100;
+    padding: 4px 0;
+    display: none;
+}
+.batch-dropdown.open .batch-menu { display: block; }
+.batch-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    color: #374151;
+    cursor: pointer;
+    transition: background .1s;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+}
+.batch-menu-item:hover { background: #f3f4f6; }
+.batch-menu-item.danger { color: #b91c1c; }
+.batch-menu-item.danger:hover { background: #fef2f2; }
+.batch-menu-item svg { width: 14px; height: 14px; flex-shrink: 0; }
+.batch-menu-sep { height: 1px; background: #e5e7eb; margin: 4px 0; }
+
+/* ========== 弹框表单紧凑样式 ========== */
+.modal .form-group { margin-bottom: 10px; }
+.modal .form-label { font-size: 12px; margin-bottom: 4px; }
+.modal .form-input, .modal .form-select { padding: 5px 8px; font-size: 12px; }
+.modal .form-textarea { min-height: 48px; padding: 5px 8px; font-size: 12px; }
+.modal .form-row { gap: 10px; }
+/* 隐藏用户名和密码输入框 */
+.modal .form-group.hide-field { display: none; }
+
+/* ========== 美化文件选择框 ========== */
+.file-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 4px 4px 10px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-md);
+    background: var(--c-surface);
+    transition: border-color var(--tr);
+}
+.file-input-wrap:hover { border-color: var(--c-border-strong, #d1d5db); }
+.file-input-wrap:focus-within { border-color: var(--c-text); }
+.file-input-hidden { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.file-input-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: #f3f4f6;
+    color: var(--c-text);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-sm);
+    font-size: 12px;
+    cursor: pointer;
+    user-select: none;
+    transition: background var(--tr), border-color var(--tr);
+    flex-shrink: 0;
+}
+.file-input-trigger:hover { background: #e5e7eb; border-color: #d1d5db; }
+.file-input-trigger:active { background: #d1d5db; }
+.file-input-btn-text { line-height: 1; }
+.file-input-name {
+    flex: 1;
+    font-size: 12px;
+    color: var(--c-text-tertiary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.4;
+}
+.file-input-name.has-file { color: var(--c-text); }
+
+/* ========== 添加/编辑视频弹框（对齐布控管理弹框尺寸） ========== */
+#streamModal.modal-overlay {
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(15, 23, 42, .35);
+    backdrop-filter: blur(4px);
+    overflow: hidden;
+}
+#streamModal .stream-form-modal {
+    width: min(820px, 94vw);
+    max-width: min(820px, 94vw);
+    max-height: 86vh;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 12px;
+    border: 1px solid var(--c-border, #e2e8f0);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, .12);
+    animation: streamModalIn .22s ease;
+}
+@keyframes streamModalIn {
+    from { opacity: 0; transform: scale(.98) translateY(6px); }
+    to { opacity: 1; transform: none; }
+}
+#streamModal .modal-header {
+    padding: 14px 20px;
+    background: linear-gradient(135deg, #f8fbfa 0%, #f0f9f6 100%);
+    flex-shrink: 0;
+}
+#streamModal .modal-title {
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+#streamModal .modal-title::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #169F85;
+    box-shadow: 0 0 0 3px rgba(22, 159, 133, .15);
+    flex-shrink: 0;
+}
+#streamModal .modal-close {
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--c-border, #e2e8f0);
+    border-radius: 8px;
+    background: #fff;
+}
+#streamModal .modal-close:hover {
+    border-color: #169F85;
+    color: #169F85;
+    background: #f0f9f6;
+}
+#streamModal .modal-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 16px 20px;
+    max-height: none;
+}
+#streamModal .modal-footer {
+    padding: 12px 20px;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #f8fbfa 0%, #f0f9f6 100%);
+}
+#streamModal .collapse-section { margin-bottom: 10px; }
+#streamModal .collapse-header { padding: 8px 12px; font-size: 12px; }
+#streamModal .collapse-body { padding: 10px 12px 4px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="stream-page">
+<!-- 页面头部 -->
+<div class="page-head">
+    <div class="page-head-title">{{ T.page_stream|default:'视频管理' }}</div>
+    <div class="page-head-right">
+        <button class="btn" onclick="openOnvifModal()">{{ T.btn_onvif_discover|default:'ONVIF 发现' }}</button>
+        <button class="btn" onclick="exportFile()">{{ T.btn_export|default:'↓ 导出' }}</button>
+        <button class="btn" onclick="openImportModal()">{{ T.btn_import|default:'↑ 导入' }}</button>
+        <button class="btn btn-primary" onclick="openAddModal()">{{ T.btn_add_video|default:'+ 添加视频' }}</button>
+    </div>
+</div>
+
+<!-- 搜索栏 -->
+<div class="card mb-16">
+    <div class="card-body">
+        <div class="search-bar">
+            <div class="search-input-wrap">
+                <span class="search-icon">🔍</span>
+                <input type="search" class="form-input" id="searchText" name="searchText" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" placeholder="{{ T.placeholder_search_stream|default:'输入名称或编号搜索' }}" onkeypress="if(event.key==='Enter')loadList(1)">
+            </div>
+            <select class="form-select" id="searchStatus" style="width:140px" onchange="loadList(1)">
+                <option value="-1">{{ T.filter_all_status|default:'全部状态' }}</option>
+                <option value="1">{{ T.status_forwarding|default:'转发中' }}</option>
+                <option value="0">{{ T.status_not_forwarding|default:'未转发' }}</option>
+            </select>
+            <button class="btn btn-primary" onclick="loadList(1)">{{ T.btn_search|default:'搜索' }}</button>
+            <button class="btn" onclick="resetSearch()">{{ T.btn_reset|default:'重置' }}</button>
+            <img id="searchLoading" src="{% static 'images/load.gif' %}" alt="loading" style="display:none;height:20px;margin-left:8px;vertical-align:middle">
+            <span style="flex:1"></span>
+            <button class="btn" onclick="loadList()">{{ T.btn_refresh_symbol|default:'↻ 刷新' }}</button>
+            <div class="batch-dropdown" id="batchDropdown">
+                <button class="batch-btn" onclick="toggleBatchMenu()">
+                    {{ T.btn_batch_ops|default:'批量操作' }}
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="batch-menu">
+                    <button class="batch-menu-item" onclick="handleAllProxy('add')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polygon points="10 8 16 12 10 16" fill="currentColor" stroke="none"/></svg>
+                        {{ T.batch_start_all_forward|default:'全部开启转发' }}
+                    </button>
+                    <button class="batch-menu-item" onclick="handleAllProxy('del')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+                        {{ T.batch_stop_all_forward|default:'全部停止转发' }}
+                    </button>
+                    <div class="batch-menu-sep"></div>
+                    <button class="batch-menu-item danger" onclick="deleteAll()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                        {{ T.batch_delete_all|default:'全部删除' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 分组列表 -->
+<div id="groupContainer" class="sg-wrap"></div>
+<div style="margin-top:12px">
+    <div class="pagination" id="pagination"></div>
+</div>
+
+<!-- ========== 添加/编辑弹窗 ========== -->
+<div class="modal-overlay" id="streamModal" onclick="if(event.target===this)closeModal('streamModal')">
+    <div class="modal stream-form-modal">
+        <div class="modal-header">
+            <span class="modal-title" id="streamModalTitle">添加视频</span>
+            <button class="modal-close" onclick="closeModal('streamModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="streamForm" onsubmit="return submitStreamForm(event)">
+                <!-- 基本信息 -->
+                <div class="collapse-section">
+                    <div class="collapse-header expanded" onclick="toggleCollapse(this)">
+                        <span>{{ T.section_basic_info|default:'基本信息' }}</span><span class="collapse-arrow">▶</span>
+                    </div>
+                    <div class="collapse-body show">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">{{ T.label_code|default:'编号' }} <span class="required">*</span></label>
+                                <input type="text" class="form-input" id="f_code" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">{{ T.label_name|default:'名称' }} <span class="required">*</span></label>
+                                <input type="text" class="form-input" id="f_nickname" placeholder="{{ T.placeholder_enter_name|default:'请输入名称' }}" maxlength="50">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">{{ T.label_protocol|default:'接入协议' }} <span class="required">*</span></label>
+                                <select class="form-select" id="f_pull_stream_type" onchange="onPullTypeChange()">
+                                    <option value="0">{{ T.option_please_select|default:'请选择' }}</option>
+                                    <option value="1">RTSP</option>
+                                    <option value="2">RTMP</option>
+                                    <option value="3">FLV</option>
+                                    <option value="4">HLS</option>
+                                    <option value="21">GB28181</option>
+                                    <option value="31">cRTSP</option>
+                                    <option value="32">cRTMP</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">{{ T.label_audio_type|default:'音频类型' }}</label>
+                                <select class="form-select" id="f_is_audio">
+                                    <option value="0">{{ T.audio_pull_mute|default:'静音' }}</option>
+                                    <option value="1">{{ T.audio_pull_original|default:'原始音频' }}</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">{{ T.label_stream_url|default:'直播流地址' }} <span class="required">*</span></label>
+                            <input type="text" class="form-input" id="f_pull_stream_url" placeholder="rtsp:// / rtmp:// / http:// ...">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">{{ T.label_stream_ip|default:'直播流IP' }}</label>
+                                <input type="text" class="form-input" id="f_pull_stream_ip" placeholder="{{ T.placeholder_stream_ip|default:'如 192.168.1.100' }}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">{{ T.label_port|default:'端口' }}</label>
+                                <input type="number" class="form-input" id="f_pull_stream_port" placeholder="{{ T.placeholder_port|default:'如 554' }}" value="0">
+                            </div>
+                            <div class="form-group hide-field">
+                                <label class="form-label">{{ T.label_username|default:'用户名' }}</label>
+                                <input type="text" class="form-input" id="f_pull_stream_username" placeholder="{{ T.placeholder_onvif_username|default:'ONVIF用户名' }}">
+                            </div>
+                            <div class="form-group hide-field">
+                                <label class="form-label">{{ T.label_password|default:'密码' }}</label>
+                                <input type="text" class="form-input" id="f_pull_stream_password" placeholder="{{ T.placeholder_onvif_password|default:'ONVIF密码' }}">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">{{ T.label_camera_name|default:'摄像头名称' }}</label>
+                                <input type="text" class="form-input" id="f_camera_name" placeholder="{{ T.placeholder_camera_name|default:'请输入摄像头名称' }}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">{{ T.label_camera_manufacturer|default:'摄像头厂商' }}</label>
+                                <input type="text" class="form-input" id="f_camera_manufacturer" placeholder="{{ T.placeholder_camera_manufacturer|default:'请输入摄像头厂商' }}">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">{{ T.label_camera_device_id|default:'分组编号（国标设备ID）' }}</label>
+                            <input type="text" class="form-input" id="f_camera_device_id" placeholder="{{ T.placeholder_camera_device_id|default:'默认使用编号' }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">{{ T.label_remark|default:'备注' }}</label>
+                            <input type="text" class="form-input" id="f_remark" placeholder="{{ T.placeholder_remark|default:'请输入备注信息' }}">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 录像设置 -->
+                <div class="collapse-section">
+                    <div class="collapse-header" onclick="toggleCollapse(this)">
+                        <span>{{ T.section_record_params|default:'录像设置' }}</span><span class="collapse-arrow">▶</span>
+                    </div>
+                    <div class="collapse-body">
+                        <div class="form-group">
+                            <label class="form-label">{{ T.label_enable_record|default:'启用 24/7 录像' }}</label>
+                            <label class="switch">
+                                <input type="checkbox" id="f_record_enable">
+                                <span class="switch-slider"></span>
+                            </label>
+                            <div style="font-size:11px;color:#9ca3af;margin-top:6px">{{ T.label_record_hint|default:'开启后，在转发成功时自动分段录制到本地磁盘' }}</div>
+                        </div>
+                    </div>
+                </div>
+
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn" onclick="closeModal('streamModal')">{{ T.btn_cancel|default:'取消' }}</button>
+            <button class="btn btn-primary" onclick="submitStreamForm()">{{ T.btn_submit|default:'提交' }}</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== ONVIF 发现弹窗 ========== -->
+<div class="modal-overlay" id="onvifModal">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <span class="modal-title">{{ T.onvif_discover_title|default:'ONVIF 设备发现' }}</span>
+            <button class="modal-close" onclick="closeModal('onvifModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="search-bar" style="margin-bottom:12px">
+                <input type="text" class="form-input" id="onvif_user" placeholder="{{ T.label_username|default:'用户名' }}" style="width:140px" value="admin">
+                <input type="password" class="form-input" id="onvif_pass" placeholder="{{ T.label_password|default:'密码' }}" style="width:140px">
+                <label style="font-size:12px;display:flex;align-items:center;gap:4px">
+                    <input type="checkbox" id="onvif_resolve" checked> {{ T.onvif_resolve_rtsp|default:'解析 RTSP' }}
+                </label>
+                <button class="btn btn-primary" onclick="scanOnvif()" id="btnOnvifScan">{{ T.onvif_scan|default:'开始扫描' }}</button>
+            </div>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>{{ T.th_ip|default:'IP' }}</th>
+                            <th>{{ T.label_name|default:'名称' }}</th>
+                            <th>ONVIF</th>
+                            <th>RTSP</th>
+                            <th>{{ T.col_action|default:'操作' }}</th>
+                        </tr>
+                    </thead>
+                    <tbody id="onvifBody">
+                        <tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:24px">{{ T.onvif_scan_hint|default:'点击「开始扫描」发现局域网 ONVIF 摄像头' }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn" onclick="closeModal('onvifModal')">{{ T.btn_close|default:'关闭' }}</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 导入弹窗 ========== -->
+<div class="modal-overlay" id="importModal">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="modal-title">{{ T.modal_import_camera|default:'批量导入摄像头' }}</span>
+            <button class="modal-close" onclick="closeModal('importModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label">{{ T.label_import_file|default:'导入文件 (xlsx)' }}</label>
+                <div class="file-input-wrap">
+                    <input type="file" id="importFile" accept=".xlsx,.xls" class="file-input-hidden">
+                    <label for="importFile" class="file-input-trigger">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--c-text-tertiary)"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                        <span class="file-input-btn-text">{{ T.btn_choose_file|default:'选择文件' }}</span>
+                    </label>
+                    <span class="file-input-name" id="importFileName">{{ T.placeholder_no_file|default:'未选择文件' }}</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">{{ T.label_import_remark|default:'导入备注' }}</label>
+                <input type="text" class="form-input" id="importRemark" placeholder="{{ T.placeholder_import_remark|default:'可选备注' }}">
+            </div>
+            <div style="font-size:13px;color:var(--c-text-tertiary);margin-top:12px">
+                <a href="/static/resource/streamTemplate.xlsx" style="color:var(--c-primary)">{{ T.btn_download_template|default:'↓ 下载导入模板' }}</a>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn" onclick="closeModal('importModal')">{{ T.btn_cancel|default:'取消' }}</button>
+            <button class="btn btn-primary" onclick="submitImport()">{{ T.btn_submit|default:'提交' }}</button>
+        </div>
+    </div>
+</div>
+
+</div><!-- /.stream-page -->
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var currentPage = 1;
+var editMode = 'add'; // add or edit
+
+// 加载列表
+function loadList(page) {
+    if (page) currentPage = page;
+    var container = document.getElementById('groupContainer');
+    var searchLoading = document.getElementById('searchLoading');
+    if (searchLoading) searchLoading.style.display = 'inline-block';
+    container.innerHTML = '<div class="sg-empty">' + _t('loading', '加载中...') + '</div>';
+
+    var params = {
+        p: currentPage,
+        ps: 10,
+        search_text: document.getElementById('searchText').value.trim(),
+        search_status: document.getElementById('searchStatus').value
+    };
+
+    Api.get('/stream/openIndex', params).then(function(res) {
+        if (searchLoading) searchLoading.style.display = 'none';
+        if (res.code === 1000) {
+            renderTable(res.data || []);
+            renderPagination(document.getElementById('pagination'), res.pageData, loadList);
+        } else {
+            showGroupEmpty(res.msg);
+        }
+    }).catch(function() {
+        if (searchLoading) searchLoading.style.display = 'none';
+        showGroupEmpty(_t('load_failed', '加载失败'));
+    });
+}
+
+function showGroupEmpty(msg) {
+    var container = document.getElementById('groupContainer');
+    container.innerHTML = '<div class="sg-empty">' + (msg || _t('no_data', '暂无数据')) + '</div>';
+}
+
+function toggleGroup(btn) {
+    var head = btn.closest('.sg-head');
+    var body = head.nextElementSibling;
+    body.classList.toggle('open');
+    btn.classList.toggle('open');
+}
+
+function renderTable(data) {
+    var container = document.getElementById('groupContainer');
+    if (!data || data.length === 0) {
+        showGroupEmpty();
+        return;
+    }
+
+    // 构建流数据映射
+    window.streamMap = {};
+    data.forEach(function(group) {
+        var streams = Array.isArray(group) ? group : [group];
+        streams.forEach(function(s) { if (s.code) window.streamMap[s.code] = s; });
+    });
+
+    var html = '';
+    data.forEach(function(group) {
+        var streams = Array.isArray(group) ? group : [group];
+        var deviceId = streams[0].camera_device_id || streams[0].code || '--';
+        var count = streams.length;
+
+        html += '<div class="sg-group">';
+        html += '<div class="sg-head">';
+        html += '<div class="sg-device">' + escapeHtml(deviceId) + '</div>';
+        html += '<span class="sg-count">' + count + '</span>';
+        html += '<button class="sg-toggle open" onclick="toggleGroup(this)">';
+        html += '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
+        html += '</button>';
+        html += '</div>';
+        html += '<div class="sg-body open">';
+        html += '<div class="table-wrap"><table class="data-table">';
+        html += '<thead><tr>';
+        html += '<th>' + _t('th_id', 'ID') + '</th>';
+        html += '<th>' + _t('label_code', '编号') + '</th>';
+        html += '<th>' + _t('label_protocol', '接入协议') + '</th>';
+        html += '<th>' + _t('label_name', '名称') + '</th>';
+        html += '<th>' + _t('th_ip', 'IP') + '</th>';
+        html += '<th>' + _t('th_status', '状态') + '</th>';
+        html += '<th>' + _t('th_update_time', '更新时间') + '</th>';
+        html += '<th>' + _t('th_action', '操作') + '</th>';
+        html += '</tr></thead><tbody>';
+        streams.forEach(function(d) { html += renderRow(d); });
+        html += '</tbody></table></div></div></div>';
+    });
+    container.innerHTML = html;
+}
+
+function renderRow(d) {
+    var id = d.id || '--';
+    var code = escapeHtml(d.code || '');
+    var nickname = escapeHtml(d.nickname || '');
+    var protocol = getPullStreamTypeName(d.pull_stream_type);
+    var ip = escapeHtml(d.pull_stream_ip || '--');
+
+    var recordTitle;
+    var recordCls = 'act-btn';
+    if (d.record_enable == 1 && d.is_recording == 1) {
+        recordTitle = _t('title_record_recording', '录制中 · 查看录像');
+        recordCls += ' act-rec-on';
+    } else if (d.record_enable == 1) {
+        recordTitle = _t('title_record_enabled_idle', '已启用录像 · 等待转发或查看历史');
+        recordCls += ' act-rec-idle';
+    } else {
+        recordTitle = _t('title_record_disabled_history', '录像已关闭 · 查看历史录像');
+    }
+    var recordBtn = '<a href="/record/index?stream_id=' + encodeURIComponent(d.id) + '" class="' + recordCls + '" title="' + recordTitle + '">'
+        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/>'
+        + '<circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/></svg></a>';
+
+    var forwardState = d.forward_state == 1
+        ? '<span class="si si-on" title="' + _t('status_forwarding', '转发中') + '"></span>'
+        : '<span class="si si-off" title="' + _t('status_not_forwarding', '未转发') + '"></span>';
+    var updateTime = d.last_update_time || '--';
+
+    var playBtn = d.forward_state == 1
+        ? '<a href="/stream/player?app=' + encodeURIComponent(d.app) + '&name=' + encodeURIComponent(d.name) + '" class="act-btn act-on" title="' + _t('title_play', '播放') + '"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21"/></svg></a>'
+        : '<button class="act-btn" disabled title="' + _t('title_play', '播放') + '"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21"/></svg></button>';
+
+    var proxyBtn = d.forward_state == 1
+        ? '<button class="act-btn" onclick="delStreamProxy(\'' + code + '\')" title="' + _t('title_stop_forward', '停止转发') + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="1"/></svg></button>'
+        : '<button class="act-btn act-on" onclick="addStreamProxy(\'' + code + '\')" title="' + _t('title_start_forward', '开启转发') + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polygon points="10 8 16 12 10 16" fill="currentColor" stroke="none"/></svg></button>';
+
+    var editBtn = '<button class="act-btn" onclick="openEditModal(\'' + code + '\')" title="' + _t('btn_edit', '编辑') + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>';
+
+    var delBtn = '<button class="act-btn act-danger" onclick="deleteStream(\'' + code + '\')" title="' + _t('btn_delete', '删除') + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>';
+
+    return '<tr>' +
+        '<td>' + id + '</td>' +
+        '<td class="mono" style="font-size:12px">' + code + '</td>' +
+        '<td><span class="badge badge-neutral">' + protocol + '</span></td>' +
+        '<td>' + nickname + '</td>' +
+        '<td>' + ip + '</td>' +
+        '<td>' + forwardState + '</td>' +
+        '<td style="font-size:12px;color:var(--c-text-tertiary)">' + updateTime + '</td>' +
+        '<td><div class="act-bar">' + playBtn + recordBtn + proxyBtn + editBtn + delBtn + '</div></td>' +
+        '</tr>';
+}
+
+function resetSearch() {
+    document.getElementById('searchText').value = '';
+    document.getElementById('searchStatus').value = '-1';
+    loadList(1);
+}
+
+// 开启转发
+function addStreamProxy(code) {
+    Api.post('/stream/openAddStreamProxy', { code: code }).then(function(res) {
+        showToast(res.msg, res.code === 1000 ? 'success' : 'error');
+        if (res.code === 1000) loadList();
+    });
+}
+
+// 停止转发
+function delStreamProxy(code) {
+    Api.post('/stream/openDelStreamProxy', { code: code }).then(function(res) {
+        showToast(res.msg, res.code === 1000 ? 'success' : 'error');
+        if (res.code === 1000) loadList();
+    });
+}
+
+// 全部开启/停止转发
+function handleAllProxy(handle) {
+    closeBatchMenu();
+    var msg = handle === 'add' ? _t('confirm_start_all_forward', '确认全部开启转发吗？') : _t('confirm_stop_all_forward', '确认全部停止转发吗？');
+    confirmDialog(msg, function() {
+        Api.post('/stream/openHandleAllStreamProxy', { handle: handle }).then(function(res) {
+            showToast(res.msg, res.code === 1000 ? 'success' : 'error');
+            if (res.code === 1000) setTimeout(loadList, 1000);
+        });
+    });
+}
+
+// 批量操作下拉菜单
+function toggleBatchMenu() {
+    document.getElementById('batchDropdown').classList.toggle('open');
+}
+function closeBatchMenu() {
+    document.getElementById('batchDropdown').classList.remove('open');
+}
+document.addEventListener('click', function(e) {
+    var dd = document.getElementById('batchDropdown');
+    if (dd && !dd.contains(e.target)) closeBatchMenu();
+});
+
+// 删除单个
+function deleteStream(code) {
+    confirmDialog(_t('confirm_delete_camera', '确认删除该摄像头吗？'), function() {
+        Api.post('/stream/openDel', { handle: 'one', code: code }).then(function(res) {
+            showToast(res.msg, res.code === 1000 ? 'success' : 'error');
+            if (res.code === 1000) loadList();
+        });
+    });
+}
+
+// 全部删除
+function deleteAll() {
+    confirmDialog(_t('confirm_delete_all', '确认全部删除吗？此操作不可恢复！'), function() {
+        Api.post('/stream/openDel', { handle: 'all' }).then(function(res) {
+            showToast(res.msg, res.code === 1000 ? 'success' : 'error');
+            if (res.code === 1000) loadList();
+        });
+    });
+}
+
+// 导出
+function exportFile() {
+    window.location.href = '/stream/openExportFile';
+}
+
+// ========== 添加/编辑 ==========
+function openAddModal() {
+    editMode = 'add';
+    document.getElementById('streamModalTitle').textContent = _t('btn_add_video', '添加视频');
+    document.getElementById('f_code').readOnly = false;
+
+    Api.get('/stream/openAddContext').then(function(res) {
+        if (res.code === 1000) {
+            var s = res.stream || {};
+            fillForm(s);
+            openModal('streamModal');
+        } else {
+            showToast(res.msg, 'error');
+        }
+    });
+}
+
+function openEditModal(code) {
+    editMode = 'edit';
+    document.getElementById('streamModalTitle').textContent = _t('modal_edit_video', '编辑视频');
+    document.getElementById('f_code').readOnly = true;
+
+    Api.get('/stream/openEditContext', { code: code }).then(function(res) {
+        if (res.code === 1000) {
+            var s = res.stream || {};
+            fillForm(s);
+            openModal('streamModal');
+        } else {
+            showToast(res.msg, 'error');
+        }
+    });
+}
+
+function fillForm(s) {
+    document.getElementById('f_code').value = s.code || '';
+    document.getElementById('f_nickname').value = s.nickname || '';
+    document.getElementById('f_pull_stream_type').value = s.pull_stream_type || 0;
+    document.getElementById('f_is_audio').value = s.is_audio || 0;
+    document.getElementById('f_pull_stream_url').value = s.pull_stream_url || '';
+    document.getElementById('f_pull_stream_ip').value = s.pull_stream_ip || '';
+    document.getElementById('f_pull_stream_port').value = s.pull_stream_port || 0;
+    document.getElementById('f_pull_stream_username').value = s.pull_stream_username || '';
+    document.getElementById('f_pull_stream_password').value = s.pull_stream_password || '';
+    document.getElementById('f_camera_name').value = s.camera_name || '';
+    document.getElementById('f_camera_manufacturer').value = s.camera_manufacturer || '';
+    document.getElementById('f_remark').value = s.remark || '';
+    document.getElementById('f_camera_device_id').value = s.camera_device_id || '';
+
+    document.getElementById('f_record_enable').checked = s.record_enable == 1;
+
+    onPullTypeChange();
+}
+
+function onPullTypeChange() {
+    var type = parseInt(document.getElementById('f_pull_stream_type').value);
+    // 添加模式下，被动协议不允许直接添加
+    if (editMode === 'add' && (type === 21 || type === 31 || type === 32)) {
+        var names = { 21: 'GB28181', 31: 'cRTSP', 32: 'cRTMP' };
+        showToast(_t('toast_passive_protocol', names[type] + ' 为被动接入协议，不可直接添加'), 'warning');
+        document.getElementById('f_pull_stream_type').value = 0;
+    }
+}
+
+function submitStreamForm() {
+    var code = document.getElementById('f_code').value.trim();
+    var nickname = document.getElementById('f_nickname').value.trim();
+
+    if (!code) { showToast(_t('toast_code_required', '编号不能为空'), 'warning'); return false; }
+    if (!nickname) { showToast(_t('toast_name_required', '名称不能为空'), 'warning'); return false; }
+
+    var pullType = parseInt(document.getElementById('f_pull_stream_type').value);
+    if (editMode === 'add') {
+        if (pullType === 0) { showToast(_t('toast_protocol_required', '请选择接入协议'), 'warning'); return false; }
+        if (pullType === 21 || pullType === 31 || pullType === 32) {
+            var names = { 21: 'GB28181', 31: 'cRTSP', 32: 'cRTMP' };
+            showToast(_t('toast_passive_protocol', names[pullType] + ' 为被动接入协议，不可直接添加'), 'warning'); return false;
+        }
+        if (pullType === 1 || pullType === 2 || pullType === 3 || pullType === 4) {
+            var url = document.getElementById('f_pull_stream_url').value.trim();
+            if (!url) { showToast(_t('toast_stream_url_required', '直播流地址不能为空'), 'warning'); return false; }
+        }
+    }
+
+    var data = {
+        code: code,
+        nickname: nickname,
+        pull_stream_type: pullType,
+        pull_stream_url: document.getElementById('f_pull_stream_url').value.trim(),
+        pull_stream_ip: document.getElementById('f_pull_stream_ip').value.trim(),
+        pull_stream_port: parseInt(document.getElementById('f_pull_stream_port').value) || 0,
+        onvif_username: document.getElementById('f_pull_stream_username').value.trim(),
+        onvif_password: document.getElementById('f_pull_stream_password').value.trim(),
+        camera_name: document.getElementById('f_camera_name').value.trim(),
+        camera_manufacturer: document.getElementById('f_camera_manufacturer').value.trim(),
+        camera_device_id: document.getElementById('f_camera_device_id').value.trim(),
+        remark: document.getElementById('f_remark').value.trim(),
+        is_audio: parseInt(document.getElementById('f_is_audio').value),
+        record_enable: document.getElementById('f_record_enable').checked ? 1 : 0
+    };
+
+    var url = editMode === 'add' ? '/stream/openAdd' : '/stream/openEdit';
+    Api.post(url, data).then(function(res) {
+        showToast(res.msg, res.code === 1000 ? 'success' : 'error');
+        if (res.code === 1000) {
+            closeModal('streamModal');
+            loadList();
+        }
+    });
+
+    return false;
+}
+
+// ========== 导入 ==========
+function openImportModal() {
+    document.getElementById('importFile').value = '';
+    document.getElementById('importFileName').textContent = _t('placeholder_no_file', '未选择文件');
+    document.getElementById('importFileName').classList.remove('has-file');
+    document.getElementById('importRemark').value = '';
+    openModal('importModal');
+}
+
+// 文件选择框美化：选中后显示文件名
+(function() {
+    document.addEventListener('change', function(e) {
+        if (e.target && e.target.id === 'importFile') {
+            var nameEl = document.getElementById('importFileName');
+            if (e.target.files && e.target.files.length > 0) {
+                nameEl.textContent = e.target.files[0].name;
+                nameEl.classList.add('has-file');
+            } else {
+                nameEl.textContent = _t('placeholder_no_file', '未选择文件');
+                nameEl.classList.remove('has-file');
+            }
+        }
+    });
+})();
+
+function submitImport() {
+    var file = document.getElementById('importFile').files[0];
+    if (!file) { showToast(_t('toast_select_file', '请选择文件'), 'warning'); return; }
+    if (file.size > 10 * 1024 * 1024) { showToast(_t('toast_file_size_limit', '文件大小不能超过10M'), 'warning'); return; }
+
+    var fd = new FormData();
+    fd.append('file', file);
+    fd.append('importRemark', document.getElementById('importRemark').value.trim());
+
+    fetch('/stream/openImportFile', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: csrfHeaders(),
+        body: fd
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        showToast(res.msg, res.code === 1000 ? 'success' : 'error');
+        if (res.code === 1000) {
+            closeModal('importModal');
+            loadList();
+        }
+    });
+}
+
+// ========== ONVIF 发现 ==========
+function openOnvifModal(){
+    document.getElementById('onvifBody').innerHTML = '<tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:24px">'+_t('onvif_scan_hint','点击「开始扫描」发现局域网 ONVIF 摄像头')+'</td></tr>';
+    openModal('onvifModal');
+}
+
+function scanOnvif(){
+    var btn = document.getElementById('btnOnvifScan');
+    var body = document.getElementById('onvifBody');
+    btn.disabled = true;
+    body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:24px">'+_t('onvif_scanning','扫描中...')+'</td></tr>';
+    var p = {
+        timeout: 4,
+        username: document.getElementById('onvif_user').value.trim(),
+        password: document.getElementById('onvif_pass').value,
+        resolve_rtsp: document.getElementById('onvif_resolve').checked ? 1 : 0
+    };
+    Api.get('/stream/openOnvifDiscover', p).then(function(res){
+        btn.disabled = false;
+        body.innerHTML = '';
+        if(!res || res.code!==1000 || !(res.data||[]).length){
+            body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:24px">'+_t('onvif_no_devices','未发现 ONVIF 设备')+'</td></tr>';
+            return;
+        }
+        res.data.forEach(function(d, idx){
+            var tr = document.createElement('tr');
+            var rtsp = d.rtsp_url ? escapeHtml(d.rtsp_url) : '<span style="color:#9ca3af">--</span>';
+            tr.innerHTML = '<td class="mono">'+escapeHtml(d.ip||'')+'</td>'
+                +'<td>'+escapeHtml(d.name||('Device-'+(idx+1)))+'</td>'
+                +'<td style="font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis" title="'+escapeHtml(d.xaddr||'')+'">'+escapeHtml((d.xaddr||'').substring(0,40))+'</td>'
+                +'<td style="font-size:11px;max-width:220px;overflow:hidden;text-overflow:ellipsis" title="'+(d.rtsp_url||'')+'">'+rtsp+'</td>'
+                +'<td><button class="btn btn-sm" onclick="addFromOnvif('+idx+')">'+_t('onvif_add_stream','添加')+'</button></td>';
+            tr._onvifData = d;
+            body.appendChild(tr);
+        });
+        window._onvifList = res.data;
+    }).catch(function(){
+        btn.disabled = false;
+        body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#dc2626;padding:24px">'+_t('load_failed','加载失败')+'</td></tr>';
+    });
+}
+
+function addFromOnvif(idx){
+    var d = (window._onvifList||[])[idx];
+    if(!d) return;
+    closeModal('onvifModal');
+    editMode = 'add';
+    document.getElementById('streamModalTitle').textContent = _t('btn_add_video', '添加视频');
+    document.getElementById('f_code').readOnly = false;
+    Api.get('/stream/openAddContext').then(function(res){
+        if(res.code !== 1000){ showToast(res.msg,'error'); return; }
+        var s = res.stream || {};
+        fillForm(s);
+        document.getElementById('f_pull_stream_type').value = '1';
+        document.getElementById('f_nickname').value = d.name || ('ONVIF-'+d.ip);
+        document.getElementById('f_camera_name').value = d.name || '';
+        document.getElementById('f_pull_stream_ip').value = d.ip || '';
+        if(d.rtsp_url){
+            document.getElementById('f_pull_stream_url').value = d.rtsp_url;
+        }
+        var user = document.getElementById('onvif_user').value.trim();
+        var pass = document.getElementById('onvif_pass').value;
+        if(user) document.getElementById('f_pull_stream_username').value = user;
+        if(pass) document.getElementById('f_pull_stream_password').value = pass;
+        onPullTypeChange();
+        openModal('streamModal');
+    });
+}
+
+// 初始化
+// 反 Chrome autofill：input 上加了 readonly，Chrome 会跳过该字段不填充，
+// 用户首次点击/聚焦时移除 readonly 即可正常输入
+loadList(1);
+</script>
+{% endblock %}

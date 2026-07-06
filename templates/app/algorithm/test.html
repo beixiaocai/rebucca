@@ -1,0 +1,470 @@
+<!--
+作者：北小菜
+官网：https://www.yuturuishi.com
+微信：bilibili_bxc
+哔哩哔哩主页：https://space.bilibili.com/487906612
+gitee地址：https://gitee.com/Vanishi/rebucca
+github地址：https://github.com/beixiaocai/rebucca
+-->
+
+{% extends "app/base.html" %}
+{% load static %}
+
+{% block title %}{{ T.alg_test_page|default:'算法测试' }} - {{ settings.name|default:"Rebucca" }}{% endblock %}
+{% block nav_algorithms %}active{% endblock %}
+{% block page_title %}{{ T.alg_test_page|default:'算法测试' }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.test-wrap{max-width:1200px;margin:0 auto;padding-bottom:20px;}
+.test-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+.test-top h2{margin:0;font-size:16px;font-weight:700;color:#1e293b;display:flex;align-items:center;gap:8px;}
+.test-top h2 .badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:12px;background:#ecfdf5;color:#065f46;border:1px solid #d1fae5;}
+.test-back{display:inline-flex;align-items:center;gap:4px;padding:6px 12px;font-size:12px;border-radius:6px;border:1px solid #e2e8f0;background:#fff;color:#64748b;text-decoration:none;}
+.test-top-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.btn-clear{padding:6px 12px;font-size:12px;border-radius:6px;border:1px solid #fecaca;background:#fff;color:#dc2626;cursor:pointer;}
+.btn-clear:hover{background:#fef2f2;border-color:#f87171;}
+
+.test-grid{display:grid;grid-template-columns:300px 1fr;gap:14px;align-items:start;}
+@media(max-width:900px){.test-grid{grid-template-columns:1fr;}}
+
+.panel{background:#fff;border-radius:10px;border:1px solid #eef2f6;box-shadow:0 1px 8px rgba(15,23,42,.04);overflow:hidden;}
+.panel-head{padding:10px 14px;background:#fafbfc;border-bottom:1px solid #f1f5f9;}
+.panel-head h3{margin:0;font-size:13px;font-weight:600;color:#475569;}
+.panel-body{padding:12px 14px;}
+
+.param-list{display:flex;flex-direction:column;gap:6px;}
+.param-item{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:7px 10px;background:#f8fafc;border-radius:6px;font-size:11px;}
+.param-item .k{color:#94a3b8;font-weight:600;flex-shrink:0;}
+.param-item .v{color:#334155;text-align:right;word-break:break-all;font-family:Consolas,Monaco,monospace;font-size:10px;}
+.param-item .v.tags{display:flex;flex-wrap:wrap;gap:3px;justify-content:flex-end;}
+.param-tag{font-size:9px;padding:1px 6px;border-radius:8px;background:#e0f2fe;color:#0369a1;font-family:inherit;}
+
+.work-zone{padding:14px;}
+
+/* 紧凑上传栏 */
+.upload-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;background:#f8fafc;border:1px dashed #dbeafe;border-radius:8px;cursor:pointer;transition:.15s;}
+.upload-bar:hover,.upload-bar.drag{border-color:#169F85;background:#f0fdf9;}
+.upload-bar input{display:none;}
+.btn-upload{flex-shrink:0;padding:6px 14px;font-size:12px;font-weight:600;border-radius:6px;border:1px solid #169F85;background:#fff;color:#169F85;cursor:pointer;pointer-events:none;}
+.upload-bar:hover .btn-upload{background:#169F85;color:#fff;}
+.upload-meta{flex:1;min-width:120px;}
+.upload-meta .name{font-size:12px;color:#334155;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px;}
+.upload-meta .hint{font-size:11px;color:#94a3b8;margin-top:2px;}
+
+/* 原图 / 渲染对比 */
+.media-compare{display:none;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;}
+.media-compare.show{display:grid;}
+@media(max-width:640px){.media-compare{grid-template-columns:1fr;}}
+.media-pane{border:1px solid #eef2f6;border-radius:8px;overflow:hidden;background:#fff;}
+.media-pane-head{padding:6px 10px;font-size:11px;font-weight:600;color:#64748b;background:#fafbfc;border-bottom:1px solid #f1f5f9;}
+.media-pane-body{height:200px;display:flex;align-items:center;justify-content:center;background:#f1f5f9;overflow:hidden;}
+.media-pane-body img,.media-pane-body video{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block;}
+.media-pane-body .placeholder{font-size:11px;color:#94a3b8;text-align:center;padding:12px;}
+
+.run-bar{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap;}
+.btn-run{padding:7px 18px;font-size:12px;font-weight:600;border:none;border-radius:6px;cursor:pointer;background:#169F85;color:#fff;transition:.15s;}
+.btn-run:hover:not(:disabled){background:#12836d;}
+.btn-run:disabled{opacity:.5;cursor:not-allowed;}
+.btn-ghost{padding:7px 14px;font-size:12px;border-radius:6px;border:1px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;}
+.btn-ghost:hover{border-color:#169F85;color:#169F85;}
+.btn-ghost:disabled{opacity:.5;cursor:not-allowed;}
+
+.progress-wrap{margin-top:10px;display:none;}
+.progress-wrap.show{display:block;}
+.progress-label{display:flex;justify-content:space-between;font-size:11px;color:#64748b;margin-bottom:4px;}
+.progress-track{height:4px;background:#e2e8f0;border-radius:99px;overflow:hidden;}
+.progress-fill{height:100%;width:0;border-radius:99px;background:#169F85;transition:width .25s ease;}
+.progress-msg{font-size:10px;color:#94a3b8;margin-top:4px;}
+
+.result-section{margin-top:14px;display:none;}
+.result-section.show{display:block;}
+.result-card{border:1px solid #eef2f6;border-radius:8px;overflow:hidden;background:#fff;}
+.result-card-head{padding:8px 12px;background:#fafbfc;border-bottom:1px solid #f1f5f9;font-size:11px;font-weight:600;color:#475569;}
+.result-card-body{padding:10px 12px;}
+.report-table{width:100%;border-collapse:collapse;font-size:11px;}
+.report-table th,.report-table td{padding:5px 8px;text-align:left;border-bottom:1px solid #f8fafc;}
+.report-table th{color:#94a3b8;font-weight:600;width:38%;}
+.report-table td{color:#334155;font-family:Consolas,Monaco,monospace;font-size:10px;}
+.summary-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
+.summary-chip{font-size:10px;padding:2px 8px;border-radius:10px;background:#ecfdf5;color:#065f46;border:1px solid #d1fae5;}
+
+.state-running .upload-bar{pointer-events:none;opacity:.65;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="test-wrap state-idle" id="testWrap">
+  <div class="test-top">
+    <h2>
+      <span>{{ T.alg_test_page|default:'算法测试' }}</span>
+      <span class="badge" id="algoBadge">#</span>
+    </h2>
+    <div class="test-top-actions">
+      <button type="button" class="btn-clear" onclick="clearTempFiles()">{{ T.alg_test_clear_temp|default:'清理临时文件' }}</button>
+      <a href="/algorithm/index" class="test-back">← {{ T.alg_back_list|default:'返回算法列表' }}</a>
+    </div>
+  </div>
+
+  <div class="test-grid">
+    <div class="panel">
+      <div class="panel-head"><h3>{{ T.alg_test_params|default:'算法参数' }}</h3></div>
+      <div class="panel-body">
+        <div class="param-list" id="paramList">
+          <div style="text-align:center;color:#94a3b8;font-size:12px;padding:16px">{{ T.index_loading|default:'加载中...' }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>{{ T.alg_test_workspace|default:'测试工作台' }}</h3></div>
+      <div class="work-zone">
+        <div class="upload-bar" id="dropArea">
+          <input type="file" id="fileInput" accept="image/*,video/*,.mp4,.avi,.mov,.mkv,.webm">
+          <span class="btn-upload">{{ T.alg_test_pick_file|default:'选择文件' }}</span>
+          <div class="upload-meta">
+            <div class="name" id="pickedName">{{ T.alg_test_upload_hint|default:'JPG / PNG / MP4，最大 100MB' }}</div>
+            <div class="hint" id="pickedHint">{{ T.alg_test_upload_sub|default:'点击或拖拽到此处' }}</div>
+          </div>
+        </div>
+
+        <div class="media-compare" id="mediaCompare">
+          <div class="media-pane">
+            <div class="media-pane-head">{{ T.alg_test_input_preview|default:'原始样本' }}</div>
+            <div class="media-pane-body" id="inputPane">
+              <div class="placeholder" id="inputEmpty">{{ T.alg_test_preview_empty|default:'选择文件后可预览' }}</div>
+              <img id="previewImg" style="display:none" alt="preview">
+              <video id="previewVideo" style="display:none" controls muted playsinline></video>
+            </div>
+          </div>
+          <div class="media-pane">
+            <div class="media-pane-head">{{ T.alg_test_output|default:'渲染结果' }}</div>
+            <div class="media-pane-body" id="outputPane">
+              <div class="placeholder" id="outputEmpty">{{ T.alg_test_output_wait|default:'测试完成后显示' }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="run-bar">
+          <button type="button" class="btn-run" id="btnRun" disabled onclick="startTest()">{{ T.alg_test_run|default:'开始测试' }}</button>
+          <button type="button" class="btn-ghost" id="btnReset" onclick="resetTest()">{{ T.alg_test_reset|default:'重置' }}</button>
+        </div>
+
+        <div class="progress-wrap" id="progressWrap">
+          <div class="progress-label">
+            <span id="progressLabel">{{ T.alg_test_running|default:'运行中...' }}</span>
+            <span id="progressPct">0%</span>
+          </div>
+          <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+          <div class="progress-msg" id="progressMsg"></div>
+        </div>
+
+        <div class="result-section" id="resultSection">
+          <div class="result-card">
+            <div class="result-card-head">{{ T.alg_test_report|default:'测试报告' }}</div>
+            <div class="result-card-body" id="reportBody"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var g_algoId = 0;
+var g_algo = null;
+var g_file = null;
+var g_pollTimer = null;
+var g_taskId = '';
+var g_previewUrl = '';
+
+function qsId(){
+  var m = /[?&]id=(\d+)/.exec(window.location.search);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
+function engineLabel(name){
+  if(name==='yolo_pytorch') return 'Yolo-PyTorch';
+  if(name==='onnxruntime') return 'OnnxRuntime';
+  if(name==='openvino') return 'OpenVINO';
+  return name || '-';
+}
+
+function typeLabel(t){
+  return ({yolo5:'YOLOv5',yolo8:'YOLOv8',yolo11:'YOLOv11',yolo26:'YOLO26'})[t] || t || '-';
+}
+
+function renderParams(a){
+  var labels = a.labels || [];
+  var labelsHtml = '';
+  if(labels.length){
+    labelsHtml = '<div class="v tags">' + labels.slice(0,8).map(function(l){
+      return '<span class="param-tag">'+escapeHtml(l)+'</span>';
+    }).join('') + (labels.length>8?' <span class="param-tag">+'+(labels.length-8)+'</span>':'') + '</div>';
+  } else {
+    labelsHtml = '<span class="v">-</span>';
+  }
+  var rows = [
+    [_t('alg_name','算法名称'), escapeHtml(a.name)],
+    [_t('alg_type','算法类型'), typeLabel(a.algorithm_type)],
+    [_t('alg_task_type','任务类型'), (a.task_type||'detect').toUpperCase()],
+    [_t('alg_engine','推理引擎'), engineLabel(a.inference_engine)],
+    [_t('alg_device','推理设备'), (a.device||'cpu').toUpperCase()],
+    [_t('alg_resolution','分辨率'), (a.input_width||640)+'×'+(a.input_height||640)],
+    [_t('alg_conf_threshold','置信度'), String(a.conf_threshold)],
+    [_t('alg_model_file','模型'), escapeHtml(a.model_file||'-')],
+    [_t('alg_labels','类别'), labelsHtml, true],
+  ];
+  var html = '';
+  rows.forEach(function(r){
+    if(r[2]) html += '<div class="param-item"><span class="k">'+r[0]+'</span>'+r[1]+'</div>';
+    else html += '<div class="param-item"><span class="k">'+r[0]+'</span><span class="v">'+r[1]+'</span></div>';
+  });
+  document.getElementById('paramList').innerHTML = html;
+  document.getElementById('algoBadge').textContent = '#'+a.id+' '+a.name;
+}
+
+function loadAlgorithm(){
+  g_algoId = qsId();
+  if(!g_algoId){
+    showToast(_t('alg_test_no_id','缺少算法 ID'), 'error');
+    setTimeout(function(){ window.location.href='/algorithm/index'; }, 1200);
+    return;
+  }
+  Api.get('/algorithm/openDetail', {id: g_algoId}).then(function(res){
+    if(!res || res.code!==1000 || !res.data || !res.data.id){
+      showToast(res?res.msg:_t('load_failed','加载失败'), 'error');
+      return;
+    }
+    g_algo = res.data;
+    renderParams(g_algo);
+    if(!g_algo.model_file){
+      showToast(_t('alg_no_model_file','请先配置模型文件'), 'warning');
+      document.getElementById('btnRun').disabled = true;
+    }
+  });
+}
+
+function isVideoFile(f){
+  return f && (/^video\//.test(f.type) || /\.(mp4|avi|mov|mkv|webm|m4v)$/i.test(f.name));
+}
+
+function isImageFile(f){
+  return f && (/^image\//.test(f.type) || /\.(jpg|jpeg|png|bmp|webp)$/i.test(f.name));
+}
+
+function revokePreviewUrl(){
+  if(g_previewUrl){ URL.revokeObjectURL(g_previewUrl); g_previewUrl = ''; }
+}
+
+function setFile(f){
+  if(!f) return;
+  if(!isVideoFile(f) && !isImageFile(f)){
+    showToast(_t('alg_test_bad_type','不支持的文件类型'), 'warning');
+    return;
+  }
+  g_file = f;
+  document.getElementById('pickedName').textContent = f.name;
+  document.getElementById('pickedHint').textContent = formatBytes(f.size);
+  document.getElementById('btnRun').disabled = !g_algo || !g_algo.model_file;
+
+  var img = document.getElementById('previewImg');
+  var vid = document.getElementById('previewVideo');
+  var inputEmpty = document.getElementById('inputEmpty');
+  revokePreviewUrl();
+  g_previewUrl = URL.createObjectURL(f);
+  img.style.display = 'none';
+  vid.style.display = 'none';
+  inputEmpty.style.display = 'none';
+  if(isVideoFile(f)){
+    vid.src = g_previewUrl;
+    vid.style.display = 'block';
+  } else {
+    img.src = g_previewUrl;
+    img.style.display = 'block';
+  }
+  document.getElementById('mediaCompare').classList.add('show');
+  clearOutputPane(true);
+  document.getElementById('resultSection').classList.remove('show');
+}
+
+function clearOutputPane(showPlaceholder){
+  var pane = document.getElementById('outputPane');
+  var empty = document.getElementById('outputEmpty');
+  pane.querySelectorAll('img,video').forEach(function(el){ el.remove(); });
+  if(showPlaceholder){
+    empty.style.display = 'block';
+    empty.textContent = _t('alg_test_output_wait','测试完成后显示');
+    if(!pane.contains(empty)) pane.appendChild(empty);
+  } else {
+    empty.style.display = 'none';
+  }
+}
+
+function formatBytes(n){
+  if(!n) return '0 B';
+  if(n<1024*1024) return (n/1024).toFixed(1)+' KB';
+  return (n/1024/1024).toFixed(2)+' MB';
+}
+
+(function initDrop(){
+  var zone = document.getElementById('dropArea');
+  var input = document.getElementById('fileInput');
+  zone.addEventListener('click', function(e){
+    if(document.getElementById('testWrap').classList.contains('state-running')) return;
+    if(e.target.tagName==='VIDEO') return;
+    input.click();
+  });
+  input.addEventListener('change', function(e){ if(e.target.files[0]) setFile(e.target.files[0]); });
+  zone.addEventListener('dragover', function(e){ e.preventDefault(); zone.classList.add('drag'); });
+  zone.addEventListener('dragleave', function(){ zone.classList.remove('drag'); });
+  zone.addEventListener('drop', function(e){
+    e.preventDefault(); zone.classList.remove('drag');
+    if(e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+  });
+})();
+
+function setRunning(running){
+  document.getElementById('testWrap').classList.toggle('state-running', running);
+  document.getElementById('btnRun').disabled = running || !g_file || !g_algo || !g_algo.model_file;
+  document.getElementById('btnReset').disabled = running;
+  document.getElementById('progressWrap').classList.toggle('show', running);
+}
+
+function updateProgress(pct, msg){
+  document.getElementById('progressFill').style.width = Math.min(100, pct)+'%';
+  document.getElementById('progressPct').textContent = Math.round(pct)+'%';
+  document.getElementById('progressMsg').textContent = msg || '';
+}
+
+function startTest(){
+  if(!g_file || !g_algoId) return;
+  if(g_pollTimer){ clearInterval(g_pollTimer); g_pollTimer = null; }
+  document.getElementById('resultSection').classList.remove('show');
+  clearOutputPane(true);
+  setRunning(true);
+  updateProgress(2, _t('alg_test_uploading','上传样本...'));
+  var fd = new FormData();
+  fd.append('algorithm_id', g_algoId);
+  fd.append('file', g_file);
+  Api.postForm('/algorithm/openTestStart', fd).then(function(res){
+    if(!res || res.code!==1000 || !res.data || !res.data.task_id){
+      setRunning(false);
+      showToast(res?res.msg:_t('msg_unknown_error','失败'), 'error');
+      return;
+    }
+    g_taskId = res.data.task_id;
+    updateProgress(8, _t('alg_test_queued','任务已排队...'));
+    g_pollTimer = setInterval(pollStatus, 800);
+    pollStatus();
+  });
+}
+
+function pollStatus(){
+  if(!g_taskId) return;
+  Api.get('/algorithm/openTestStatus', {task_id: g_taskId}).then(function(res){
+    if(!res || res.code!==1000 || !res.data) return;
+    var d = res.data;
+    updateProgress(d.progress||0, d.message||'');
+    if(d.status==='done'){
+      clearInterval(g_pollTimer); g_pollTimer = null;
+      setRunning(false);
+      showResult(d);
+      showToast(_t('alg_test_done','测试完成'), 'success');
+    } else if(d.status==='error'){
+      clearInterval(g_pollTimer); g_pollTimer = null;
+      setRunning(false);
+      showToast(d.error || d.message || _t('msg_unknown_error','失败'), 'error');
+    }
+  });
+}
+
+function showResult(d){
+  var rep = d.report || {};
+  var html = '<table class="report-table">';
+  html += row(_t('alg_test_media','媒体类型'), rep.media_type||'-');
+  html += row(_t('alg_test_input_size','输入尺寸'), (rep.input_size||[]).join('×')||'-');
+  if(rep.media_type==='video'){
+    html += row(_t('alg_test_frames','处理帧数'), (rep.processed_frames||0)+'/'+(rep.frame_count||'?'));
+    html += row('FPS', rep.fps||'-');
+  }
+  html += row(_t('alg_test_det_count','检测总数'), rep.detection_count||0);
+  html += row(_t('alg_test_infer_avg','平均推理'), (rep.inference_ms_avg||0)+' ms');
+  html += row(_t('alg_test_elapsed','总耗时'), (rep.elapsed_ms||0)+' ms');
+  html += '</table>';
+  var summary = rep.detections_summary || [];
+  if(summary.length){
+    html += '<div class="summary-chips">';
+    summary.slice(0,12).forEach(function(s){
+      html += '<span class="summary-chip">'+escapeHtml(s.label)+' ×'+s.count+'</span>';
+    });
+    html += '</div>';
+  }
+  document.getElementById('reportBody').innerHTML = html;
+
+  clearOutputPane(false);
+  var pane = document.getElementById('outputPane');
+  if(d.output_url){
+    var src = d.output_url + (d.output_url.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now();
+    if(d.output_type === 'video'){
+      var vid = document.createElement('video');
+      vid.src = src;
+      vid.controls = true;
+      vid.muted = true;
+      vid.playsInline = true;
+      pane.appendChild(vid);
+    } else {
+      var img = document.createElement('img');
+      img.alt = 'result';
+      img.src = src;
+      img.onerror = function(){
+        clearOutputPane(true);
+        document.getElementById('outputEmpty').textContent = _t('alg_test_output_load_fail','渲染结果加载失败');
+        document.getElementById('outputEmpty').style.color = '#f87171';
+      };
+      pane.appendChild(img);
+    }
+  } else {
+    clearOutputPane(true);
+  }
+  document.getElementById('resultSection').classList.add('show');
+}
+
+function row(k,v){
+  return '<tr><th>'+k+'</th><td>'+v+'</td></tr>';
+}
+
+function resetTest(){
+  if(g_pollTimer){ clearInterval(g_pollTimer); g_pollTimer = null; }
+  g_taskId = '';
+  g_file = null;
+  revokePreviewUrl();
+  document.getElementById('fileInput').value = '';
+  document.getElementById('pickedName').textContent = _t('alg_test_upload_hint','JPG / PNG / MP4，最大 100MB');
+  document.getElementById('pickedHint').textContent = _t('alg_test_upload_sub','点击或拖拽到此处');
+  document.getElementById('previewImg').style.display = 'none';
+  document.getElementById('previewVideo').style.display = 'none';
+  document.getElementById('inputEmpty').style.display = 'block';
+  document.getElementById('mediaCompare').classList.remove('show');
+  clearOutputPane(true);
+  document.getElementById('resultSection').classList.remove('show');
+  document.getElementById('progressWrap').classList.remove('show');
+  setRunning(false);
+  document.getElementById('btnRun').disabled = !g_algo || !g_algo.model_file;
+}
+
+function clearTempFiles(){
+  if(!confirm(_t('alg_test_clear_confirm','确认清理所有算法测试临时文件？'))) return;
+  Api.post('/algorithm/openTestClearTemp', {}).then(function(res){
+    showToast(res.msg, res.code===1000?'success':'error');
+    if(res.code===1000){
+      resetTest();
+    }
+  });
+}
+
+loadAlgorithm();
+</script>
+{% endblock %}

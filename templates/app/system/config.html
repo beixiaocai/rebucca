@@ -1,0 +1,841 @@
+<!--
+作者：北小菜
+官网：https://www.yuturuishi.com
+微信：bilibili_bxc
+哔哩哔哩主页：https://space.bilibili.com/487906612
+gitee地址：https://gitee.com/Vanishi/rebucca
+github地址：https://github.com/beixiaocai/rebucca
+-->
+
+﻿{% extends "app/base.html" %}
+{% load static %}
+
+{% block title %}{{ T.page_config|default:'启动配置' }} - {{ settings.name|default:"Rebucca" }}{% endblock %}
+{% block nav_config %}active{% endblock %}
+{% block page_title %}{{ T.page_config|default:'启动配置' }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.cfg-wrap { max-width: 1080px; margin: 0 auto; }
+
+/* ============ 顶部 Tab 切换 ============ */
+.cfg-tabs {
+    display: flex;
+    background: #fff;
+    border-radius: 8px;
+    border: 1px solid var(--c-border-light, #eef2f5);
+    margin-bottom: 16px;
+    overflow-x: auto;
+}
+.cfg-tab {
+    flex: 1;
+    min-width: 110px;
+    padding: 12px 16px;
+    text-align: center;
+    font-size: 13px;
+    color: #6b7280;
+    background: transparent;
+    border: none;
+    border-right: 1px solid var(--c-border-light, #eef2f5);
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+    font-weight: 500;
+    position: relative;
+}
+.cfg-tab:last-child { border-right: none; }
+.cfg-tab:hover { background: #fafbfc; color: #374151; }
+.cfg-tab.active {
+    color: #169F85;
+    font-weight: 600;
+    background: #f0f9f6;
+}
+.cfg-tab.active::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 2px;
+    background: #169F85;
+}
+
+/* ============ 卡片 ============ */
+.cfg-card {
+    background: #fff;
+    border-radius: 8px;
+    border: 1px solid var(--c-border-light, #eef2f5);
+    margin-bottom: 14px;
+    display: none;
+}
+.cfg-card.active { display: block; }
+
+.cfg-card-head {
+    display: flex;
+    align-items: center;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--c-border-light, #eef2f5);
+}
+.cfg-card-head h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f2937;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.cfg-card-head h3::before {
+    content: "";
+    display: inline-block;
+    width: 3px;
+    height: 14px;
+    background: #169F85;
+    border-radius: 2px;
+}
+.cfg-card-head .head-tip {
+    margin-left: auto;
+    font-size: 12px;
+    color: #9ca3af;
+}
+.cfg-card-body { padding: 16px 20px; }
+
+/* ============ 两列布局 ============ */
+.cfg-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 32px;
+}
+@media (max-width: 820px) { .cfg-cols { grid-template-columns: 1fr; } }
+
+/* ============ 表单组 ============ */
+.cfg-form-group {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    min-height: 38px;
+    border-bottom: 1px solid #f3f4f6;
+}
+.cfg-form-group:last-child { border-bottom: none; }
+.cfg-form-group .cfg-label {
+    flex: 0 0 36%;
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 500;
+    padding-right: 12px;
+}
+.cfg-form-group .cfg-control {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* ============ 输入控件 ============ */
+.cfg-input, .cfg-select {
+    width: 100%;
+    padding: 6px 10px;
+    font-size: 13px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    background: #fff;
+    color: #1f2937;
+    transition: border-color .15s, box-shadow .15s;
+    height: 32px;
+    box-sizing: border-box;
+}
+.cfg-input:hover, .cfg-select:hover { border-color: #9ca3af; }
+.cfg-input:focus, .cfg-select:focus {
+    outline: none;
+    border-color: #169F85;
+    box-shadow: 0 0 0 2px rgba(22,159,133,0.12);
+}
+.cfg-input.small { width: 100px; flex-shrink: 0; }
+.cfg-input.middle { width: 64px; flex-shrink: 0; text-align: center; }
+
+.cfg-hint { font-size: 11px; color: #9ca3af; margin-left: 4px; }
+
+/* ============ 单选按钮组（按钮式） ============ */
+.cfg-radio-group {
+    display: inline-flex;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid #d1d5db;
+}
+.cfg-radio-group input { display: none; }
+.cfg-radio-opt {
+    padding: 5px 14px;
+    font-size: 12px;
+    color: #6b7280;
+    background: #fff;
+    cursor: pointer;
+    transition: all .15s;
+    user-select: none;
+    border-right: 1px solid #d1d5db;
+}
+.cfg-radio-opt:last-child { border-right: none; }
+.cfg-radio-opt:hover { background: #f3f4f6; color: #374151; }
+.cfg-radio-group input:checked + .cfg-radio-opt {
+    background: #169F85;
+    color: #fff;
+    font-weight: 500;
+}
+
+/* ============ 开关 ============ */
+.cfg-switch-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cfg-switch-row .cfg-switch-label { font-size: 12px; color: #9ca3af; }
+
+/* ============ 底部操作栏 ============ */
+.cfg-actions {
+    background: #fff;
+    border: 1px solid var(--c-border-light, #eef2f5);
+    border-radius: 8px;
+    padding: 12px 20px;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+}
+.cfg-save-tip {
+    margin-right: auto;
+    font-size: 12px;
+    color: #9ca3af;
+}
+.cfg-save-tip.danger { color: #b91c1c; }
+
+.cfg-btn {
+    padding: 7px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 4px;
+    border: 1px solid #d1d5db;
+    background: #fff;
+    color: #4b5563;
+    cursor: pointer;
+    transition: all .15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.cfg-btn:hover { color: #169F85; border-color: #169F85; background: #f0f9f6; }
+.cfg-btn-primary {
+    background: #169F85;
+    color: #fff;
+    border-color: #169F85;
+}
+.cfg-btn-primary:hover {
+    background: #14b89a;
+    border-color: #14b89a;
+    color: #fff;
+}
+.cfg-btn-primary:disabled { opacity: .6; cursor: not-allowed; background: #169F85; }
+
+/* 加载转圈 */
+.cfg-spinner {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border: 2px solid #e5e7eb;
+    border-top: 2px solid #169F85;
+    border-radius: 50%;
+    animation: cfg-spin 1s linear infinite;
+    vertical-align: middle;
+}
+@keyframes cfg-spin { 0% { transform: rotate(0); } 100% { transform: rotate(360deg); } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="cfg-wrap">
+
+    <!-- 页面头部 -->
+    <div class="page-head">
+        <div class="page-head-left">
+            <div>
+                <div class="page-head-title">{{ T.page_config|default:'启动配置' }}</div>
+                <div class="page-head-sub">{{ T.config_subtitle|default:'基础参数、GB28181 信令与品牌信息统一管理' }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 切换条 -->
+    <div class="cfg-tabs">
+        <button class="cfg-tab active" data-tab="tab_basic" onclick="switchCfgTab('tab_basic')">{{ T.tab_basic|default:'基础配置' }}</button>
+        <button class="cfg-tab" data-tab="tab_media" onclick="switchCfgTab('tab_media')">{{ T.tab_media|default:'流媒体' }}</button>
+        <button class="cfg-tab" data-tab="tab_analysis" onclick="switchCfgTab('tab_analysis')">{{ T.tab_analysis|default:'分析' }}</button>
+        <button class="cfg-tab" data-tab="tab_record" onclick="switchCfgTab('tab_record')">{{ T.tab_record|default:'录像' }}</button>
+        <button class="cfg-tab" data-tab="tab_gb28181" onclick="switchCfgTab('tab_gb28181')">{{ T.tab_gb28181|default:'GB28181' }}</button>
+        <button class="cfg-tab" data-tab="tab_oem" onclick="switchCfgTab('tab_oem')">{{ T.tab_branding|default:'品牌信息' }}</button>
+    </div>
+
+    <!-- 卡片1：基础配置 -->
+    <div class="cfg-card active" data-card="tab_basic">
+        <div class="cfg-card-head"><h3>{{ T.tab_basic|default:'基础配置' }}</h3><span class="head-tip">{{ T.tip_config_save|default:'保存后立即写入并热更新，无需重启' }}</span></div>
+        <div class="cfg-card-body">
+            <div class="cfg-cols">
+                <div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_storage_path|default:'数据存储路径' }} <span style="color:#b91c1c">*</span></label>
+                        <div class="cfg-control"><input type="text" class="cfg-input" id="storageDir" placeholder="{{ T.placeholder_storage_path|default:'请输入数据存储路径' }}"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_upload_path|default:'上传目录' }}</label>
+                        <div class="cfg-control"><input type="text" class="cfg-input" id="uploadDir" placeholder="static/upload"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_admin_port|default:'管理端口' }}</label>
+                        <div class="cfg-control"><input type="number" class="cfg-input small" id="adminPort" placeholder="10001"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">ffmpeg</label>
+                        <div class="cfg-control"><input type="text" class="cfg-input" id="ffmpeg" placeholder="ffmpeg"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_font_path|default:'字体路径' }}</label>
+                        <div class="cfg-control"><input type="text" class="cfg-input" id="fontPath" placeholder="static/fonts/..."></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_host_ip|default:'主机IP' }} <span style="color:#b91c1c">*</span></label>
+                        <div class="cfg-control"><input type="text" class="cfg-input" id="host" placeholder="{{ T.placeholder_host_ip|default:'请输入主机IP' }}"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_auto_proxy|default:'自动流代理' }}</label>
+                        <div class="cfg-control">
+                            <div class="cfg-switch-row">
+                                <label class="switch">
+                                    <input type="checkbox" id="autoAddStreamProxy" value="1">
+                                    <span class="switch-slider"></span>
+                                </label>
+                                <input type="number" class="cfg-input middle" id="autoAddStreamProxySleep" placeholder="15">
+                                <span class="cfg-switch-label">{{ T.label_delay_seconds|default:'延时(秒)' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_login_captcha|default:'登录验证码' }}</label>
+                        <div class="cfg-control">
+                            <div class="cfg-switch-row">
+                                <label class="switch">
+                                    <input type="checkbox" id="isEnableLoginCaptcha" value="1">
+                                    <span class="switch-slider"></span>
+                                </label>
+                                <span class="cfg-switch-label">{{ T.switch_show_login_captcha|default:'登录页显示验证码' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_debug_mode|default:'调试模式' }}</label>
+                        <div class="cfg-control">
+                            <div class="cfg-switch-row">
+                                <label class="switch">
+                                    <input type="checkbox" id="logDebug" value="1">
+                                    <span class="switch-slider"></span>
+                                </label>
+                                <span class="cfg-switch-label">{{ T.switch_debug_log|default:'输出调试日志' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_update_popup|default:'更新提醒' }}</label>
+                        <div class="cfg-control">
+                            <div class="cfg-switch-row">
+                                <label class="switch">
+                                    <input type="checkbox" id="isEnableUpdatePopup" value="1">
+                                    <span class="switch-slider"></span>
+                                </label>
+                                <span class="cfg-switch-label">{{ T.switch_update_popup|default:'是否开启更新提醒弹框' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 卡片：流媒体 ZLM -->
+    <div class="cfg-card" data-card="tab_media">
+        <div class="cfg-card-head"><h3>{{ T.tab_media|default:'流媒体' }}</h3><span class="head-tip">{{ T.tip_media_zlm|default:'ZLMediaKit 端口与启动路径' }}</span></div>
+        <div class="cfg-card-body">
+            <div class="cfg-cols">
+                <div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">HTTP {{ T.label_port|default:'端口' }}</label>
+                        <div class="cfg-control"><input type="number" class="cfg-input small" id="mediaHttpPort"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">RTSP {{ T.label_port|default:'端口' }}</label>
+                        <div class="cfg-control"><input type="number" class="cfg-input small" id="mediaRtspPort"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">RTMP {{ T.label_port|default:'端口' }}</label>
+                        <div class="cfg-control"><input type="number" class="cfg-input small" id="mediaRtmpPort"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_media_secret|default:'API 密钥' }}</label>
+                        <div class="cfg-control"><input type="text" class="cfg-input" id="mediaSecret"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">RTMP {{ T.label_proxy|default:'代理' }}</label>
+                        <div class="cfg-control">
+                            <label class="switch"><input type="checkbox" id="isEnableMediaProxyRtmp" value="1"><span class="switch-slider"></span></label>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_media_exe|default:'ZLM 程序路径' }}</label>
+                        <div class="cfg-control"><input type="text" class="cfg-input" id="mediaStartPath" placeholder="zlm/bin.../rebucca_zlm.exe"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_media_config|default:'ZLM 配置文件' }}</label>
+                        <div class="cfg-control"><input type="text" class="cfg-input" id="mediaStartConfigPath" placeholder="zlm/bin.../config.ini"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_auto_start_media|default:'随 Rebucca 自启' }}</label>
+                        <div class="cfg-control">
+                            <label class="switch"><input type="checkbox" id="autoStartMedia" value="1"><span class="switch-slider"></span></label>
+                            <span class="cfg-hint">{{ T.hint_auto_start_media|default:'调试时可关闭，改在控制面板手动启动' }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 卡片：分析 -->
+    <div class="cfg-card" data-card="tab_analysis">
+        <div class="cfg-card-head"><h3>{{ T.tab_analysis|default:'分析' }}</h3></div>
+        <div class="cfg-card-body">
+            <div class="cfg-cols">
+                <div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_analysis_fps|default:'解码目标 FPS' }}</label>
+                        <div class="cfg-control"><input type="number" class="cfg-input small" id="analysisTargetFps"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_conf_threshold|default:'置信度阈值' }}</label>
+                        <div class="cfg-control"><input type="number" step="0.01" class="cfg-input small" id="analysisConfThreshold"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_process_mode|default:'进程模式' }}</label>
+                        <div class="cfg-control"><input type="number" class="cfg-input small" id="analysisProcessMode" title="0=线程 1=子进程"><span class="cfg-hint">0=线程 ≥1=子进程</span></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_shared_inference|default:'共享推理' }}</label>
+                        <div class="cfg-control"><label class="switch"><input type="checkbox" id="analysisSharedInference" value="1"><span class="switch-slider"></span></label></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_inference_workers|default:'推理 Worker 数' }}</label>
+                        <div class="cfg-control"><input type="number" class="cfg-input small" id="analysisInferenceWorkers" min="1" max="8"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 卡片：录像 -->
+    <div class="cfg-card" data-card="tab_record">
+        <div class="cfg-card-head"><h3>{{ T.tab_record|default:'录像' }}</h3></div>
+        <div class="cfg-card-body">
+            <div class="cfg-cols">
+                <div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_recording_enabled|default:'启用录像管理' }}</label>
+                        <div class="cfg-control"><label class="switch"><input type="checkbox" id="recordingEnabled" value="1"><span class="switch-slider"></span></label></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_segment_seconds|default:'分段时长(秒)' }}</label>
+                        <div class="cfg-control"><input type="number" class="cfg-input small" id="recordingSegmentSeconds"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_retain_days|default:'保留天数' }}</label>
+                        <div class="cfg-control"><input type="number" class="cfg-input small" id="recordingRetainDays"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_retain_gb|default:'容量上限(GB)' }}</label>
+                        <div class="cfg-control"><input type="number" step="0.1" class="cfg-input small" id="recordingRetainGb"><span class="cfg-hint">0=不限</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 卡片2：GB28181配置 -->
+    <div class="cfg-card" data-card="tab_gb28181">
+        <div class="cfg-card-head"><h3>{{ T.tab_gb28181|default:'GB28181 配置' }}</h3><span class="head-tip">{{ T.tip_sip_params|default:'SIP 信令服务器参数' }}</span></div>
+        <div class="cfg-card-body">
+            <div class="cfg-cols">
+                <div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_server_ip|default:'服务器IP' }} <span style="color:#b91c1c">*</span></label>
+                        <div class="cfg-control"><input type="text" class="cfg-input" id="sipServerIp" placeholder="{{ T.placeholder_server_ip|default:'请输入服务器IP' }}"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_server_port|default:'服务器端口' }} <span style="color:#b91c1c">*</span></label>
+                        <div class="cfg-control"><input type="number" class="cfg-input" id="sipServerPort" placeholder="5060"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_sip_nonce|default:'SIP Nonce' }}</label>
+                        <div class="cfg-control"><input type="text" class="cfg-input" id="sipServerNonce"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_server_id|default:'服务器ID' }} <span style="color:#b91c1c">*</span></label>
+                        <div class="cfg-control"><input type="text" class="cfg-input" id="sipServerId" placeholder="{{ T.placeholder_server_id|default:'请输入服务器ID' }}"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_server_realm|default:'服务器域' }} <span style="color:#b91c1c">*</span></label>
+                        <div class="cfg-control"><input type="text" class="cfg-input" id="sipServerRealm" placeholder="{{ T.placeholder_server_realm|default:'请输入服务器域' }}"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_server_password|default:'服务器密码' }}</label>
+                        <div class="cfg-control"><input type="password" class="cfg-input" id="sipServerPass" placeholder="{{ T.placeholder_server_password|default:'请输入服务器密码' }}"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_server_timeout|default:'心跳超时(秒)' }} <span style="color:#b91c1c">*</span></label>
+                        <div class="cfg-control"><input type="number" class="cfg-input" id="sipServerTimeout" placeholder="1800"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_server_expiry|default:'注册过期(秒)' }} <span style="color:#b91c1c">*</span></label>
+                        <div class="cfg-control"><input type="number" class="cfg-input" id="sipServerExpiry" placeholder="3600"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_signaling_protocol|default:'信令传输协议' }}</label>
+                        <div class="cfg-control">
+                            <div class="cfg-radio-group">
+                                <input type="radio" name="sipTransferMode" id="sipTransferMode0" value="0">
+                                <label class="cfg-radio-opt" for="sipTransferMode0">UDP</label>
+                                <input type="radio" name="sipTransferMode" id="sipTransferMode1" value="1">
+                                <label class="cfg-radio-opt" for="sipTransferMode1">TCP</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_data_protocol|default:'数据传输协议' }}</label>
+                        <div class="cfg-control">
+                            <div class="cfg-radio-group">
+                                <input type="radio" name="rtpTransferMode" id="rtpTransferMode0" value="0">
+                                <label class="cfg-radio-opt" for="rtpTransferMode0">{{ T.option_udp_passive|default:'UDP 被动' }}</label>
+                                <input type="radio" name="rtpTransferMode" id="rtpTransferMode1" value="1">
+                                <label class="cfg-radio-opt" for="rtpTransferMode1">{{ T.option_tcp_passive|default:'TCP 被动' }}</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_audio_transport_type|default:'音频传输类型' }}</label>
+                        <div class="cfg-control">
+                            <div class="cfg-radio-group">
+                                <input type="radio" name="rtpTransferAudioType" id="rtpTransferAudioType0" value="0">
+                                <label class="cfg-radio-opt" for="rtpTransferAudioType0">{{ T.option_mute|default:'静音' }}</label>
+                                <input type="radio" name="rtpTransferAudioType" id="rtpTransferAudioType1" value="1">
+                                <label class="cfg-radio-opt" for="rtpTransferAudioType1">{{ T.option_original_audio|default:'原始音频' }}</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_auto_invite|default:'自动 INVITE' }}</label>
+                        <div class="cfg-control">
+                            <div class="cfg-switch-row">
+                                <label class="switch">
+                                    <input type="checkbox" id="autoInviteAfterRecCateLog" value="1">
+                                    <span class="switch-slider"></span>
+                                </label>
+                                <span class="cfg-switch-label">{{ T.switch_auto_invite|default:'收到 Catalog 后自动 INVITE' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 卡片3：品牌信息 -->
+    <div class="cfg-card" data-card="tab_oem">
+        <div class="cfg-card-head"><h3>{{ T.tab_branding|default:'品牌信息' }}</h3><span class="head-tip">{{ T.tip_oem_branding|default:'OEM 品牌信息' }}</span></div>
+        <div class="cfg-card-body">
+            <div class="cfg-cols">
+                <div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_system_name|default:'系统名称' }}</label>
+                        <div class="cfg-control"><input type="text" class="cfg-input" id="b_name" maxlength="50" placeholder="{{ T.placeholder_system_name|default:'请输入系统名称' }}"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_welcome_msg|default:'欢迎语' }}</label>
+                        <div class="cfg-control"><input type="text" class="cfg-input" id="b_welcome" maxlength="100" placeholder="{{ T.placeholder_welcome_msg|default:'请输入欢迎语' }}"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_logo_url|default:'Logo 地址' }}</label>
+                        <div class="cfg-control"><input type="text" class="cfg-input" id="b_logo_url" placeholder="{{ T.placeholder_logo_url|default:'请输入 Logo 图片地址' }}"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_bottom_name|default:'底部名称' }}</label>
+                        <div class="cfg-control"><input type="text" class="cfg-input" id="b_bottom_name" maxlength="50" placeholder="{{ T.placeholder_bottom_name|default:'请输入底部名称' }}"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_author_name|default:'作者名称' }}</label>
+                        <div class="cfg-control"><input type="text" class="cfg-input" id="b_author" maxlength="50" placeholder="{{ T.placeholder_author_name|default:'请输入作者名称' }}"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_author_link|default:'作者链接' }}</label>
+                        <div class="cfg-control"><input type="text" class="cfg-input" id="b_author_link" placeholder="{{ T.placeholder_author_link|default:'请输入作者主页链接' }}"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_version_download_link|default:'版本下载链接' }}</label>
+                        <div class="cfg-control"><input type="text" class="cfg-input" id="b_check_version_download_url" placeholder="{{ T.placeholder_version_download_link|default:'版本检查与下载地址' }}"></div>
+                    </div>
+                    <div class="cfg-form-group">
+                        <label class="cfg-label">{{ T.label_show_author|default:'显示作者' }}</label>
+                        <div class="cfg-control">
+                            <div class="cfg-switch-row">
+                                <label class="switch">
+                                    <input type="checkbox" id="b_is_show_author">
+                                    <span class="switch-slider"></span>
+                                </label>
+                                <span class="cfg-switch-label">{{ T.switch_show_author_footer|default:'页面底部显示作者信息' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部操作栏 -->
+    <div class="cfg-actions">
+        <button class="cfg-btn" onclick="loadAllConfig()">{{ T.btn_refresh|default:'刷新' }}</button>
+        <button class="cfg-btn cfg-btn-primary" id="btnSave" onclick="saveCurrentTab()">{{ T.btn_save|default:'保存' }}</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var currentTab = 'tab_basic';
+    var hasUnsavedChange = false;
+
+    window.switchCfgTab = function(tabId) {
+        currentTab = tabId;
+        document.querySelectorAll('.cfg-tab').forEach(function(btn) {
+            btn.classList.toggle('active', btn.getAttribute('data-tab') === tabId);
+        });
+        document.querySelectorAll('.cfg-card').forEach(function(card) {
+            card.classList.toggle('active', card.getAttribute('data-card') === tabId);
+        });
+        hasUnsavedChange = false;
+    };
+
+    function pick(d, flat, obj, sub) {
+        if (d == null) return '';
+        if (d[flat] !== undefined && d[flat] !== null) return d[flat];
+        if (obj && sub && d[obj] && d[obj][sub] !== undefined && d[obj][sub] !== null) return d[obj][sub];
+        return '';
+    }
+    function setVal(id, v) { var el = document.getElementById(id); if (el) el.value = (v === null || v === undefined) ? '' : v; }
+    function setChecked(id, v) { var el = document.getElementById(id); if (el) el.checked = (v === 1 || v === '1' || v === true); }
+    function setRadio(name, v) {
+        var radios = document.getElementsByName(name);
+        var value = (v === null || v === undefined) ? '' : String(v);
+        for (var i = 0; i < radios.length; i++) radios[i].checked = (radios[i].value === value);
+    }
+    function val(id) { var el = document.getElementById(id); return el ? el.value : ''; }
+    function checked(id) { var el = document.getElementById(id); return el && el.checked ? 1 : 0; }
+    function toInt(id, def) { var n = parseInt(val(id), 10); return isNaN(n) ? (def || 0) : n; }
+    function radioVal(name) {
+        var radios = document.getElementsByName(name);
+        for (var i = 0; i < radios.length; i++) if (radios[i].checked) return parseInt(radios[i].value, 10);
+        return 0;
+    }
+
+    function markDirty() {
+        if (!hasUnsavedChange) {
+            hasUnsavedChange = true;
+        }
+    }
+    document.addEventListener('input', function(e) {
+        if (e.target.matches('.cfg-card.active input, .cfg-card.active select, .cfg-card.active textarea')) markDirty();
+    });
+    document.addEventListener('change', function(e) {
+        if (e.target.matches('.cfg-card.active input, .cfg-card.active select, .cfg-card.active textarea')) markDirty();
+    });
+
+    window.loadAllConfig = function () {
+        Api.get('/system/openConfig').then(function (res) {
+            if (res && res.code === 1000) {
+                fillForm(res.data || res.config || {}, res.branding || {});
+            } else {
+                showToast((res && res.msg) || _t('toast_config_load_failed', '配置加载失败'), 'error');
+            }
+        });
+    };
+
+    function fillForm(cfg, brand) {
+        setVal('host', pick(cfg, 'host'));
+        setVal('storageDir', pick(cfg, 'storageDir'));
+        setVal('uploadDir', pick(cfg, 'uploadDir'));
+        setVal('adminPort', pick(cfg, 'adminPort'));
+        setVal('ffmpeg', pick(cfg, 'ffmpeg'));
+        setVal('fontPath', pick(cfg, 'fontPath'));
+        setChecked('autoAddStreamProxy', pick(cfg, 'autoAddStreamProxy'));
+        setVal('autoAddStreamProxySleep', pick(cfg, 'autoAddStreamProxySleep'));
+        setChecked('isEnableLoginCaptcha', pick(cfg, 'isEnableLoginCaptcha'));
+        setChecked('logDebug', pick(cfg, 'logDebug'));
+        setChecked('isEnableUpdatePopup', pick(cfg, 'isEnableUpdatePopup'));
+
+        setVal('mediaHttpPort', pick(cfg, 'mediaHttpPort'));
+        setVal('mediaRtspPort', pick(cfg, 'mediaRtspPort'));
+        setVal('mediaRtmpPort', pick(cfg, 'mediaRtmpPort'));
+        setVal('mediaSecret', pick(cfg, 'mediaSecret'));
+        setChecked('isEnableMediaProxyRtmp', pick(cfg, 'isEnableMediaProxyRtmp'));
+        setVal('mediaStartPath', pick(cfg, 'mediaStartPath'));
+        setVal('mediaStartConfigPath', pick(cfg, 'mediaStartConfigPath'));
+        setChecked('autoStartMedia', pick(cfg, 'autoStartMedia'));
+
+        setVal('analysisTargetFps', pick(cfg, 'analysisTargetFps'));
+        setVal('analysisConfThreshold', pick(cfg, 'analysisConfThreshold'));
+        setVal('analysisProcessMode', pick(cfg, 'analysisProcessMode'));
+        setChecked('analysisSharedInference', pick(cfg, 'analysisSharedInference'));
+        setVal('analysisInferenceWorkers', pick(cfg, 'analysisInferenceWorkers'));
+
+        setChecked('recordingEnabled', pick(cfg, 'recordingEnabled'));
+        setVal('recordingSegmentSeconds', pick(cfg, 'recordingSegmentSeconds'));
+        setVal('recordingRetainDays', pick(cfg, 'recordingRetainDays'));
+        setVal('recordingRetainGb', pick(cfg, 'recordingRetainGb'));
+
+        setVal('sipServerIp', pick(cfg, 'sipServerIp', 'sipServer', 'sipServerIp'));
+        setVal('sipServerPort', pick(cfg, 'sipServerPort', 'sipServer', 'sipServerPort'));
+        setVal('sipServerNonce', pick(cfg, 'sipServerNonce', 'sipServer', 'sipServerNonce'));
+        setVal('sipServerId', pick(cfg, 'sipServerId', 'sipServer', 'sipServerId'));
+        setVal('sipServerRealm', pick(cfg, 'sipServerRealm', 'sipServer', 'sipServerRealm'));
+        setVal('sipServerPass', pick(cfg, 'sipServerPass', 'sipServer', 'sipServerPass'));
+        setVal('sipServerTimeout', pick(cfg, 'sipServerTimeout', 'sipServer', 'sipServerTimeout'));
+        setVal('sipServerExpiry', pick(cfg, 'sipServerExpiry', 'sipServer', 'sipServerExpiry'));
+        setRadio('sipTransferMode', pick(cfg, 'sipTransferMode', 'sipServer', 'sipTransferMode'));
+        setRadio('rtpTransferMode', pick(cfg, 'rtpTransferMode', 'sipServer', 'rtpTransferMode'));
+        setRadio('rtpTransferAudioType', pick(cfg, 'rtpTransferAudioType', 'sipServer', 'rtpTransferAudioType'));
+        setChecked('autoInviteAfterRecCateLog', pick(cfg, 'autoInviteAfterRecCateLog', 'sipServer', 'autoInviteAfterRecCateLog'));
+
+        setVal('b_name', brand.name);
+        setVal('b_welcome', brand.welcome);
+        setVal('b_logo_url', brand.logo_url);
+        setVal('b_bottom_name', brand.bottom_name);
+        setVal('b_author', brand.author);
+        setVal('b_author_link', brand.author_link);
+        setVal('b_check_version_download_url', brand.check_version_download_url);
+        setChecked('b_is_show_author', brand.is_show_author);
+
+        hasUnsavedChange = false;
+    }
+
+    window.saveCurrentTab = function () {
+        if (currentTab === 'tab_oem') saveOEM();
+        else saveConfig();
+    };
+
+    function saveConfig() {
+        var params = {
+            host: val('host').trim(),
+            storageDir: val('storageDir').trim(),
+            uploadDir: val('uploadDir').trim(),
+            adminPort: toInt('adminPort', 10001),
+            ffmpeg: val('ffmpeg').trim(),
+            fontPath: val('fontPath').trim(),
+            autoAddStreamProxy: checked('autoAddStreamProxy'),
+            autoAddStreamProxySleep: toInt('autoAddStreamProxySleep', 15),
+            isEnableLoginCaptcha: checked('isEnableLoginCaptcha'),
+            logDebug: checked('logDebug'),
+            isEnableUpdatePopup: checked('isEnableUpdatePopup'),
+            mediaHttpPort: toInt('mediaHttpPort', 10002),
+            mediaRtspPort: toInt('mediaRtspPort', 10554),
+            mediaRtmpPort: toInt('mediaRtmpPort', 10935),
+            mediaSecret: val('mediaSecret').trim(),
+            isEnableMediaProxyRtmp: checked('isEnableMediaProxyRtmp'),
+            mediaStartPath: val('mediaStartPath').trim(),
+            mediaStartConfigPath: val('mediaStartConfigPath').trim(),
+            autoStartMedia: checked('autoStartMedia'),
+            analysisTargetFps: toInt('analysisTargetFps', 5),
+            analysisConfThreshold: parseFloat(val('analysisConfThreshold')) || 0.4,
+            analysisProcessMode: toInt('analysisProcessMode', 1),
+            analysisSharedInference: checked('analysisSharedInference'),
+            analysisInferenceWorkers: toInt('analysisInferenceWorkers', 2),
+            recordingEnabled: checked('recordingEnabled'),
+            recordingSegmentSeconds: toInt('recordingSegmentSeconds', 600),
+            recordingRetainDays: toInt('recordingRetainDays', 7),
+            recordingRetainGb: parseFloat(val('recordingRetainGb')) || 0,
+            sipServerIp: val('sipServerIp').trim(),
+            sipServerPort: toInt('sipServerPort', 5060),
+            sipServerNonce: val('sipServerNonce').trim(),
+            sipServerId: val('sipServerId').trim(),
+            sipServerRealm: val('sipServerRealm').trim(),
+            sipServerPass: val('sipServerPass'),
+            sipServerTimeout: toInt('sipServerTimeout', 1800),
+            sipServerExpiry: toInt('sipServerExpiry', 3600),
+            sipTransferMode: radioVal('sipTransferMode'),
+            rtpTransferMode: radioVal('rtpTransferMode'),
+            rtpTransferAudioType: radioVal('rtpTransferAudioType'),
+            autoInviteAfterRecCateLog: checked('autoInviteAfterRecCateLog')
+        };
+
+        confirmDialog(_t('confirm_save_config', '确定保存当前配置吗？'), function () {
+            var btn = document.getElementById('btnSave');
+            btn.disabled = true;
+            var orig = btn.textContent;
+            btn.textContent = _t('saving', '保存中...');
+            Api.post('/system/openConfig', params).then(function (res) {
+                btn.disabled = false;
+                btn.textContent = orig;
+                if (res && res.code === 1000) {
+                    showToast(res.msg || _t('syscfg_save_success', '保存成功，配置已生效'), 'success');
+                    hasUnsavedChange = false;
+                } else {
+                    showToast((res && res.msg) || _t('save_failed', '保存失败'), 'error');
+                }
+            }).catch(function () {
+                btn.disabled = false;
+                btn.textContent = orig;
+            });
+        });
+    }
+
+    function saveOEM() {
+        var data = {
+            name: val('b_name').trim(),
+            welcome: val('b_welcome').trim(),
+            logo_url: val('b_logo_url').trim(),
+            bottom_name: val('b_bottom_name').trim(),
+            author: val('b_author').trim(),
+            author_link: val('b_author_link').trim(),
+            check_version_download_url: val('b_check_version_download_url').trim(),
+            is_show_author: checked('b_is_show_author') ? true : false
+        };
+        var btn = document.getElementById('btnSave');
+        btn.disabled = true;
+        var orig = btn.textContent;
+        btn.textContent = _t('saving', '保存中...');
+        Api.post('/system/openSaveSettings', data).then(function (res) {
+            btn.disabled = false;
+            btn.textContent = orig;
+            if (res && res.code === 1000) {
+                showToast(res.msg || _t('toast_branding_saved', '品牌信息保存成功'), 'success');
+                hasUnsavedChange = false;
+            } else {
+                showToast((res && res.msg) || _t('save_failed', '保存失败'), 'error');
+            }
+        }).catch(function () {
+            btn.disabled = false;
+            btn.textContent = orig;
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () { loadAllConfig(); });
+})();
+</script>
+{% endblock %}

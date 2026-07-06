@@ -1,0 +1,351 @@
+<!--
+作者：北小菜
+官网：https://www.yuturuishi.com
+微信：bilibili_bxc
+哔哩哔哩主页：https://space.bilibili.com/487906612
+gitee地址：https://gitee.com/Vanishi/rebucca
+github地址：https://github.com/beixiaocai/rebucca
+-->
+
+﻿{% extends "app/base.html" %}
+{% load static %}
+
+{% block title %}{{ T.version_title|default:'关于系统' }} - {{ settings.name|default:"Rebucca" }}{% endblock %}
+{% block page_title %}{{ T.version_title|default:'关于系统' }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.version-container {
+    padding: 20px;
+    max-width: 960px;
+    margin: 0 auto;
+}
+.version-row {
+    display: flex;
+    gap: 16px;
+}
+.version-col-left {
+    flex: 0 0 320px;
+}
+.version-col-right {
+    flex: 1;
+    min-width: 0;
+}
+.version-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.version-card-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #eef2f5;
+}
+.version-card-header h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #2c3e50;
+}
+.version-info-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    margin-bottom: 4px;
+    background: #f9fafb;
+    border-radius: 4px;
+}
+.version-info-label {
+    font-size: 12px;
+    color: #6b7280;
+    min-width: 70px;
+}
+.version-info-value {
+    font-size: 12px;
+    color: #374151;
+    font-weight: 500;
+}
+.btn-check {
+    width: 100%;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    margin-top: 12px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+    transition: all 0.2s;
+}
+.btn-check:hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+    transform: translateY(-1px);
+}
+.btn-check:active {
+    transform: translateY(0);
+}
+.version-result {
+    min-height: 300px;
+}
+.version-item {
+    background: #fefce8;
+    border: 1px solid #fef08a;
+    border-radius: 4px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+.version-header-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #fef08a;
+}
+.version-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    background: #eab308;
+    color: white;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-right: 10px;
+}
+.version-title-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: #713f12;
+    flex: 1;
+}
+.version-date {
+    font-size: 11px;
+    color: #a16207;
+}
+.update-list {
+    margin: 0;
+    padding-left: 20px;
+}
+.update-item {
+    padding: 3px 0;
+    font-size: 12px;
+    color: #57534e;
+    line-height: 1.6;
+}
+.version-actions {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #fef08a;
+    display: flex;
+    gap: 8px;
+}
+.btn-link {
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 4px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s;
+}
+.btn-download {
+    background: linear-gradient(135deg, #169F85 0%, #14b89a 100%);
+    color: white;
+}
+.btn-download:hover {
+    box-shadow: 0 3px 8px rgba(22, 159, 133, 0.3);
+    color: white;
+    transform: translateY(-1px);
+    text-decoration: none;
+}
+.btn-history {
+    background: white;
+    color: #606266;
+    border: 1px solid #dcdfe6;
+}
+.btn-history:hover {
+    color: #169F85;
+    border-color: #169F85;
+    background: #f0f9f6;
+    text-decoration: none;
+}
+.no-update {
+    text-align: center;
+    padding: 60px 20px;
+}
+.no-update-icon {
+    width: 60px;
+    height: 60px;
+    line-height: 60px;
+    margin: 0 auto 12px;
+    background: #f0fdf4;
+    border-radius: 50%;
+    color: #22c55e;
+    font-size: 28px;
+}
+.no-update-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 6px;
+}
+.loading-state {
+    text-align: center;
+    padding: 60px 20px;
+}
+.loading-spinner {
+    display: inline-block;
+    width: 32px;
+    height: 32px;
+    border: 3px solid #e5e7eb;
+    border-top: 3px solid #169F85;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 12px;
+}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+.loading-text {
+    font-size: 12px;
+    color: #6b7280;
+}
+@media (max-width: 768px) {
+    .version-row { flex-direction: column; }
+    .version-col-left { flex: none; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="version-container">
+    <div class="version-row">
+        <!-- 左侧：关于系统 -->
+        <div class="version-col-left">
+            <div class="version-card">
+                <div class="version-card-header">
+                    <h3>{{ T.version_about_system|default:'关于系统' }}</h3>
+                </div>
+
+                <div class="version-info-item">
+                    <span class="version-info-label">{{ T.version_app_name|default:'应用名称' }}</span>
+                    <span class="version-info-value">{{ settings.name }}</span>
+                </div>
+
+                <div class="version-info-item">
+                    <span class="version-info-label">{{ T.version_software_version|default:'软件版本' }}</span>
+                    <span class="version-info-value">v{{ project_version }}</span>
+                </div>
+
+                <div class="version-info-item">
+                    <span class="version-info-label">{{ T.version_software_flag|default:'软件标记' }}</span>
+                    <span class="version-info-value">{{ project_flag }}</span>
+                </div>
+
+                <button onclick="f_openCheckVersion()" class="btn-check">
+                    {{ T.version_check_new|default:'检测新版本' }}
+                </button>
+            </div>
+        </div>
+
+        <!-- 右侧：版本检测结果 -->
+        <div class="version-col-right">
+            <div class="version-card">
+                <div class="version-card-header">
+                    <h3>{{ T.version_result|default:'版本检测结果' }}</h3>
+                </div>
+
+                <div class="version-result" id="versionResult">
+                    <div class="loading-state">
+                        <div class="loading-spinner"></div>
+                        <div class="loading-text">{{ T.version_checking|default:'正在检测版本...' }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let eleResult = document.getElementById("versionResult");
+
+    function f_openCheckVersion() {
+        eleResult.innerHTML = '<div class="loading-state">' +
+            '<div class="loading-spinner"></div>' +
+            '<div class="loading-text">{{ T.version_checking|default:"正在检测版本..." }}</div>' +
+            '</div>';
+
+        fetch('/version/openCheckVersion', {
+            method: 'GET',
+            headers: {'Content-Type': 'application/json'}
+        }).then(function(res) {
+            return res.json();
+        }).then(function(res) {
+            let info = res.info || {};
+            let historyVersionUrl = info.historyVersionUrl || '';
+
+            if (1000 === res.code) {
+                let version = (info.version || '').toString();
+                let updateContent = info.updateContent || [];
+                let pubdate = info.pubdate || '';
+                let url = info.url || '';
+
+                let html = '<div class="version-item">' +
+                    '<div class="version-header-row">' +
+                    '<span class="version-badge">{{ T.version_new_badge|default:"NEW" }}</span>' +
+                    '<span class="version-title-text">{{ T.version_found_new|default:"发现新版本" }} v' + version + '</span>' +
+                    '<span class="version-date">' + pubdate + '</span>' +
+                    '</div>' +
+                    '<ul class="update-list">';
+
+                for (let i = 0; i < updateContent.length; i++) {
+                    html += '<li class="update-item">' + updateContent[i] + '</li>';
+                }
+
+                html += '</ul>' +
+                    '<div class="version-actions">' +
+                    '<a href="' + url + '" target="_blank" class="btn-link btn-download">{{ T.version_download_new|default:"下载新版本" }}</a>';
+
+                if (historyVersionUrl) {
+                    html += '<a href="' + historyVersionUrl + '" target="_blank" class="btn-link btn-history">{{ T.version_history|default:"历史版本" }}</a>';
+                }
+
+                html += '</div></div>';
+                eleResult.innerHTML = html;
+            } else {
+                let html = '<div class="no-update">' +
+                    '<div class="no-update-icon">&#10003;</div>' +
+                    '<div class="no-update-title">' + res.msg + '</div>';
+
+                if (historyVersionUrl) {
+                    html += '<a href="' + historyVersionUrl + '" target="_blank" class="btn-link btn-history" style="margin-top:12px">{{ T.version_view_history|default:"查看历史版本" }}</a>';
+                }
+
+                html += '</div>';
+                eleResult.innerHTML = html;
+            }
+        }).catch(function() {
+            eleResult.innerHTML = '<div class="no-update">' +
+                '<div class="no-update-icon" style="color:#ef4444;background:#fef2f2">&#10007;</div>' +
+                '<div class="no-update-title">{{ T.version_net_error_title|default:"网络异常" }}</div>' +
+                '<div style="font-size:12px;color:#6b7280">{{ T.version_net_error_desc|default:"请检查网络连接后重试" }}</div>' +
+                '</div>';
+        });
+    }
+
+    window.onload = function () {
+        f_openCheckVersion();
+    };
+</script>
+{% endblock %}

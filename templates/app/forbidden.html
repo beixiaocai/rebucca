@@ -1,0 +1,27 @@
+<!--
+作者：北小菜
+官网：https://www.yuturuishi.com
+微信：bilibili_bxc
+哔哩哔哩主页：https://space.bilibili.com/487906612
+gitee地址：https://gitee.com/Vanishi/rebucca
+github地址：https://github.com/beixiaocai/rebucca
+-->
+
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>访问拒绝 - {{ settings.name|default:"Rebucca" }}</title>
+    <link rel="stylesheet" href="{% static 'lib/css/style.css' %}">
+</head>
+<body style="background:#0f172a;display:flex;align-items:center;justify-content:center;min-height:100vh">
+    <div style="text-align:center;color:#f1f5f9">
+        <div style="font-size:72px;font-weight:700;color:#169F85;margin-bottom:16px">403</div>
+        <div style="font-size:20px;font-weight:600;margin-bottom:8px">访问拒绝</div>
+        <div style="font-size:14px;color:#94a3b8;margin-bottom:24px">抱歉，您没有权限访问此页面</div>
+        <a href="/" style="display:inline-block;padding:10px 28px;background:#169F85;color:#fff;border-radius:6px;font-size:14px;text-decoration:none">返回首页</a>
+    </div>
+</body>
+</html>

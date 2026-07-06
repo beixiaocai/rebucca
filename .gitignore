@@ -1,0 +1,45 @@
+﻿# IDE
+.idea/
+.vs/
+.vscode/
+.qoder
+.qtcreator
+
+# Python
+__pycache__/*
+*$py.class
+*.so
+.Python
+
+# env / build
+venv/*
+dist/*
+build/*
+
+# Django
+rebucca.sqlite3
+
+# runtime artifacts
+.allowed_hosts
+.user_settings
+.license
+
+# spec files (PyInstaller build artifacts)
+rebucca.spec
+
+# uploads / storage
+static/storage/*
+framework/__pycache__/*
+app/__pycache__/*
+app/migrations/*
+app/migrations/__pycache__/*
+app/comms/__pycache__/*
+app/utils/__pycache__/*
+app/views/__pycache__/*
+app/services/__pycache__/*
+app/analysis/__pycache__/*
+app/analysis/engines/__pycache__/*
+app/recording/__pycache__/*
+# logs / docs / external services
+docs/*
+log/*

@@ -1,0 +1,323 @@
+<!--
+作者：北小菜
+官网：https://www.yuturuishi.com
+微信：bilibili_bxc
+哔哩哔哩主页：https://space.bilibili.com/487906612
+gitee地址：https://gitee.com/Vanishi/rebucca
+github地址：https://github.com/beixiaocai/rebucca
+-->
+
+﻿{% extends "app/base.html" %}
+{% load static %}
+
+{% block title %}视频播放 - {{ settings.name|default:"Rebucca" }}{% endblock %}
+{% block nav_stream %}active{% endblock %}
+{% block page_title %}视频播放{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div class="page-head-left">
+        <div>
+            <div class="page-head-title">视频播放</div>
+            <div class="page-head-sub" id="streamSubTitle">加载中...</div>
+        </div>
+    </div>
+    <div class="page-head-right">
+        <a href="/stream/index" class="btn">← 返回列表</a>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 320px;gap:16px" class="resp-player">
+    <!-- 播放器 -->
+    <div>
+        <div class="player-wrap" id="playerWrap">
+            <div id="video_player" style="width:100%;height:100%;background:#000;min-height:400px"></div>
+            <div class="player-overlay" id="playerOverlay">
+                <div style="font-size:32px">▶</div>
+                <div>正在加载视频流...</div>
+            </div>
+        </div>
+        <!-- 播放器信息条 -->
+        <div class="player-info-bar">
+            <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+                <span style="font-size:13px;color:var(--c-text-secondary)">
+                    状态: <span id="infoStatus" style="font-weight:600">--</span>
+                </span>
+                <span style="font-size:13px;color:var(--c-text-secondary)">
+                    编码: <span id="infoCodec" style="font-weight:600">--</span>
+                </span>
+                <span style="font-size:13px;color:var(--c-text-secondary)">
+                    分辨率: <span id="infoResolution" style="font-weight:600">--</span>
+                </span>
+                <span style="font-size:13px;color:var(--c-text-secondary)">
+                    在线时长: <span id="infoAlive" style="font-weight:600">--</span>
+                </span>
+                <span style="font-size:13px;color:var(--c-text-secondary)">
+                    观看人数: <span id="infoReaders" style="font-weight:600">--</span>
+                </span>
+            </div>
+            <div style="display:flex;gap:8px">
+                <button class="btn btn-sm" onclick="stopPlay()">停止</button>
+                <button class="btn btn-sm btn-primary" onclick="startPlay()">播放</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 侧边栏 -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+        <!-- 分发地址 -->
+        <div class="card">
+            <div class="card-header"><span class="card-title">分发地址</span></div>
+            <div class="card-body">
+                <div class="url-list" id="urlList">
+                    <div style="text-align:center;color:var(--c-text-tertiary);font-size:13px;padding:20px 0">加载中...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PTZ 控制（仅 GB28181 显示） -->
+        <div class="card" id="ptzCard" style="display:none">
+            <div class="card-header"><span class="card-title">云台控制</span></div>
+            <div class="card-body">
+                <div class="ptz-pad">
+                    <div class="ptz-btn" onclick="ptzControl(2)">↖</div>
+                    <div class="ptz-btn" onclick="ptzControl(1)">↑</div>
+                    <div class="ptz-btn" onclick="ptzControl(3)">↗</div>
+                    <div class="ptz-btn" onclick="ptzControl(4)">←</div>
+                    <div class="ptz-btn ptz-center" onclick="ptzControl(9)">●</div>
+                    <div class="ptz-btn" onclick="ptzControl(6)">→</div>
+                    <div class="ptz-btn" onclick="ptzControl(7)">↙</div>
+                    <div class="ptz-btn" onclick="ptzControl(5)">↓</div>
+                    <div class="ptz-btn" onclick="ptzControl(8)">↘</div>
+                </div>
+                <div style="display:flex;justify-content:center;gap:8px;margin-top:14px">
+                    <button class="btn btn-sm" onclick="ptzControl(10)">调焦+</button>
+                    <button class="btn btn-sm" onclick="ptzControl(11)">调焦-</button>
+                </div>
+                <div style="display:flex;justify-content:center;gap:8px;margin-top:6px">
+                    <button class="btn btn-sm" onclick="ptzControl(12)">聚焦+</button>
+                    <button class="btn btn-sm" onclick="ptzControl(13)">聚焦-</button>
+                </div>
+                <div style="display:flex;justify-content:center;gap:8px;margin-top:6px">
+                    <button class="btn btn-sm" onclick="ptzControl(14)">光圈+</button>
+                    <button class="btn btn-sm" onclick="ptzControl(15)">光圈-</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'lib/easyPlayer/js/easyplayer-pro.js' %}"></script>
+<script>
+var streamInfo = {{ stream_json|safe|default:"{}" }};
+var ePlayer = null;
+
+function createPlayer() {
+    var container = document.getElementById('video_player');
+    ePlayer = new EasyPlayerPro({
+        container: container,
+        videoBuffer: 0.1,
+        decoder: '/static/lib/easyPlayer/js/decoder-pro.js',
+        isResize: true,
+        loadingText: '加载中',
+        debug: false,
+        useMSE: true,
+        useWCS: true,
+        hasAudio: true,
+        isNotMute: false,
+        showBandwidth: true,
+        operateBtns: {
+            fullscreen: true,
+            screenshot: true,
+            play: true,
+            audio: true,
+            ptz: false
+        },
+        timeout: 10,
+        forceNoOffscreen: true,
+        heartTimeout: 10
+    });
+}
+
+function initPlayer() {
+    var s = streamInfo;
+    if (!s || !s.app || !s.name) {
+        var overlay = document.getElementById('playerOverlay');
+        if (overlay) { overlay.innerHTML = '<div style="font-size:32px">✕</div><div>视频流信息无效</div>'; overlay.style.display = 'flex'; }
+        return;
+    }
+
+    document.getElementById('streamSubTitle').textContent =
+        '编号: ' + (s.code || '--') + ' · 协议: ' + getPullStreamTypeName(s.pull_stream_type);
+
+    // 更新信息
+    if (s.is_online == 1) {
+        document.getElementById('infoStatus').innerHTML = '<span style="color:var(--c-success)">在线</span>';
+    } else {
+        document.getElementById('infoStatus').innerHTML = '<span style="color:var(--c-text-tertiary)">离线</span>';
+    }
+    document.getElementById('infoCodec').textContent = s.video_codec_name || '--';
+    document.getElementById('infoResolution').textContent = (s.video_width || 0) + 'x' + (s.video_height || 0);
+    document.getElementById('infoAlive').textContent = formatTime(s.aliveSecond || 0);
+    document.getElementById('infoReaders').textContent = s.totalReaderCount || 0;
+
+    // 渲染地址列表
+    renderUrlList(s);
+
+    // GB28181 显示 PTZ
+    if (s.pull_stream_type == 21 && s.code) {
+        document.getElementById('ptzCard').style.display = 'block';
+    }
+
+    // 自动播放
+    if (s.is_online == 1) {
+        startPlay();
+    } else {
+        var overlay = document.getElementById('playerOverlay');
+        if (overlay) { overlay.innerHTML = '<div style="font-size:32px">○</div><div>视频流离线</div>'; overlay.style.display = 'flex'; }
+    }
+}
+
+function renderUrlList(s) {
+    var urls = [
+        { label: 'RTSP', value: s.rtspUrl },
+        { label: 'RTMP', value: s.rtmpUrl },
+        { label: 'HTTP-FLV', value: s.httpFlvUrl },
+        { label: 'WS-FLV', value: s.wsFlvUrl },
+        { label: 'HTTP-fMP4', value: s.httpMp4Url },
+        { label: 'WS-fMP4', value: s.wsMp4Url }
+    ];
+
+    var html = '';
+    urls.forEach(function(u) {
+        if (u.value) {
+            html += '<div class="url-item">' +
+                '<span class="url-label">' + u.label + '</span>' +
+                '<span class="url-value" title="' + escapeHtml(u.value) + '">' + escapeHtml(u.value) + '</span>' +
+                '<span class="url-copy" onclick="copyToClipboard(\'' + escapeHtml(u.value).replace(/'/g, "\\'") + '\')">复制</span>' +
+                '</div>';
+        }
+    });
+    document.getElementById('urlList').innerHTML = html || '<div style="text-align:center;color:var(--c-text-tertiary);font-size:13px;padding:20px 0">暂无地址</div>';
+}
+
+function startPlay() {
+    var s = streamInfo;
+    var playUrl = s.wsMp4Url || s.httpMp4Url || s.wsFlvUrl || s.httpFlvUrl;
+    if (!playUrl) {
+        var overlay = document.getElementById('playerOverlay');
+        if (overlay) { overlay.innerHTML = '<div style="font-size:32px">✕</div><div>无可用播放地址</div>'; overlay.style.display = 'flex'; }
+        return;
+    }
+
+    // 隐藏遮罩层
+    var overlay = document.getElementById('playerOverlay');
+    if (overlay) overlay.style.display = 'none';
+
+    function doPlay() {
+        createPlayer();
+        ePlayer.play(playUrl);
+    }
+
+    if (ePlayer) {
+        ePlayer.destroy().then(doPlay).catch(doPlay);
+    } else {
+        doPlay();
+    }
+}
+
+function stopPlay() {
+    if (ePlayer) {
+        try { ePlayer.destroy(); } catch(e) {}
+        ePlayer = null;
+    }
+    var wrap = document.getElementById('playerWrap');
+    wrap.innerHTML = '<div id="video_player" style="width:100%;height:100%;background:#000;min-height:400px"></div><div class="player-overlay" id="playerOverlay"><div style="font-size:32px">■</div><div>已停止</div></div>';
+}
+
+function ptzControl(ptzType) {
+    var s = streamInfo;
+    if (!s.code) return;
+
+    Api.post('/stream/openPtz', {
+        code: s.code,
+        ptzType: ptzType,
+        ptzSpeed: 4
+    }).then(function(res) {
+        if (res.code !== 1000) {
+            showToast(res.msg, 'error');
+        }
+    });
+}
+
+// 定时刷新信息
+var prevIsOnline = streamInfo.is_online == 1;
+setInterval(function() {
+    if (streamInfo.app && streamInfo.name) {
+        Api.get('/stream/openPlayer', { app: streamInfo.app, name: streamInfo.name }).then(function(res) {
+            if (res.code === 1000) {
+                var s = res.info.stream || {};
+                var wasOnline = prevIsOnline;
+                var nowOnline = s.is_online == 1;
+                prevIsOnline = nowOnline;
+
+                streamInfo.is_online = s.is_online;
+                streamInfo.aliveSecond = s.aliveSecond;
+                streamInfo.totalReaderCount = s.totalReaderCount;
+                streamInfo.video_codec_name = s.video_codec_name;
+                streamInfo.video_width = s.video_width;
+                streamInfo.video_height = s.video_height;
+
+                if (nowOnline) {
+                    document.getElementById('infoStatus').innerHTML = '<span style="color:var(--c-success)">在线</span>';
+                } else {
+                    document.getElementById('infoStatus').innerHTML = '<span style="color:var(--c-text-tertiary)">离线</span>';
+                }
+                document.getElementById('infoCodec').textContent = s.video_codec_name || '--';
+                document.getElementById('infoResolution').textContent = (s.video_width || 0) + 'x' + (s.video_height || 0);
+                document.getElementById('infoAlive').textContent = formatTime(s.aliveSecond || 0);
+                document.getElementById('infoReaders').textContent = s.totalReaderCount || 0;
+
+                // 在线状态变化时处理播放器
+                if (wasOnline && !nowOnline) {
+                    // 从在线变为离线：销毁播放器，显示离线遮罩
+                    showOfflineOverlay();
+                } else if (!wasOnline && nowOnline) {
+                    // 从离线变为在线：自动重连播放
+                    startPlay();
+                }
+            }
+        });
+    }
+}, 5000);
+
+function showOfflineOverlay() {
+    if (ePlayer) {
+        try { ePlayer.destroy(); } catch(e) {}
+        ePlayer = null;
+    }
+    var wrap = document.getElementById('playerWrap');
+    wrap.innerHTML = '<div id="video_player" style="width:100%;height:100%;background:#000;min-height:400px"></div>' +
+        '<div class="player-overlay" id="playerOverlay">' +
+        '<div style="font-size:32px">○</div>' +
+        '<div>视频流离线，等待重连...</div>' +
+        '</div>';
+}
+
+initPlayer();
+
+// 页面加载后，异步请求截屏（不阻塞播放）
+(function() {
+    var s = streamInfo;
+    if (s && s.app && s.name) {
+        Api.get('/nvr/openSnap', { app: s.app, name: s.name, force: 1 }).then(function(res) {
+            // 截屏请求已发送，图片持久化到服务器磁盘
+            // online 页面展示时会读取磁盘缓存
+        }).catch(function() {});
+    }
+})();
+</script>
+{% endblock %}
