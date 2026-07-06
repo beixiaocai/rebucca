@@ -11,6 +11,8 @@
 
 **开源协议：** MIT License，可自由商用。详见 `LICENSE`。
 
+* 体验地址：http://47.110.138.209:10001 账号：admin 密码： admin888
+
 ---
 
 ## 功能
@@ -28,6 +30,31 @@
 - FFmpeg（PATH 或 `config.json` 配置）
 - ZLMediaKit（流媒体，端口与 `config.json` 一致）
 - GPU 可选
+
+
+```bash
+如果是Linux系统，需要手动进入到zlm/bin.x86.gcc9.4 或 zlm/bin.arm.gcc9.4 ，确保可以正确执行 ./rebucca_zlm
+
+
+如果执行./rebucca_zlm失败了，可以参考下面的两种方式解决安装环境问题
+
+（1）解决方式一
+sudo chmod -R a+x *
+echo "export LD_LIBRARY_PATH=\"$(pwd):\$LD_LIBRARY_PATH\"" >> ~/.bashrc && source ~/.bashrc
+
+（2）解决方式二
+
+sudo apt update
+sudo apt install -y libsrtp2-1
+
+//下载ubuntu20的libssl1.1包
+wget http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2.24_amd64.deb
+sudo dpkg -i libssl1.1_1.1.1f-1ubuntu2.24_amd64.deb
+
+//修复依赖
+sudo apt -f install
+
+```
 
 **安装依赖：**
 
