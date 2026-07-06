@@ -17,8 +17,6 @@ dist/*
 build/*
 
 # Django
-rebucca.sqlite3
-
 # runtime artifacts
 .allowed_hosts
 .user_settings
