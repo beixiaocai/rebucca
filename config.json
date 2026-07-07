@@ -7,7 +7,7 @@
     "mediaRtmpPort": 10935,
     "isEnableMediaProxyRtmp": true,
     "mediaSecret": "aqxY9ps21fyhyKNRyYpGvJCTp1JBeGOM",
-    "mediaStartPath": "zlm\\bin.x86.windows10\\rebucca_zlm",
+    "mediaStartPath": "zlm\\bin.x86.windows10\\rebucca_zlm.exe",
     "mediaStartConfigPath": "zlm\\bin.x86.windows10\\config.ini",
     "autoStartMedia": true,
     "ffmpeg": "ffmpeg",
