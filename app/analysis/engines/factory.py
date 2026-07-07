@@ -18,6 +18,7 @@ from app.analysis.engines.base import BaseEngine, EngineNotAvailableError
 from app.analysis.engines.yolo_pytorch_engine import YoloPytorchEngine
 from app.analysis.engines.onnx_engine import OnnxEngine
 from app.analysis.engines.openvino_engine import OpenVinoEngine
+from app.analysis.engines.reid_onnx_engine import ReidOnnxEngine
 
 logger = logging.getLogger("analysis.engines.factory")
 
@@ -86,6 +87,14 @@ class EngineFactory(object):
 
     @staticmethod
     def create(engine_name, **kwargs):
+        task_type = (kwargs.get("task_type") or "detect").lower()
+        if task_type == "reid":
+            eng = (engine_name or "").lower()
+            if eng not in ("onnxruntime", "onnx"):
+                raise EngineNotAvailableError("ReID models only support onnxruntime")
+            if not ReidOnnxEngine.is_available():
+                raise EngineNotAvailableError("reid onnxruntime not installed")
+            return ReidOnnxEngine(**kwargs)
         cls = _ENGINE_REGISTRY.get((engine_name or "").lower())
         if cls is None:
             raise EngineNotAvailableError("unknown engine: %s" % engine_name)

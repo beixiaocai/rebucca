@@ -8,18 +8,23 @@ logger = logging.getLogger("analysis.biz_rules")
 # 后处理类型常量（与 models.BizAlgorithmModel.POST_* 保持一致）
 POST_AREA = "AREA"
 POST_LINE_CROSS = "LINE_CROSS"
+POST_LINE_COUNT = "LINE_COUNT"
 POST_DIRECTION = "DIRECTION"
 POST_DENSITY = "DENSITY"
 POST_DWELL = "DWELL"
 
-# 支持小模型流程（flow_type 1/3）的后处理白名单
-SMALL_FLOW_POSTS = (POST_AREA, POST_LINE_CROSS, POST_DIRECTION, POST_DENSITY, POST_DWELL)
+# 支持小模型流程（flow_type 1/3/4）的后处理白名单
+SMALL_FLOW_POSTS = (POST_AREA, POST_LINE_CROSS, POST_LINE_COUNT, POST_DIRECTION, POST_DENSITY, POST_DWELL)
 # 支持大模型流程（flow_type 2）的后处理白名单（大模型主要做语义判断，几何类后处理意义有限）
 LLM_FLOW_POSTS = (POST_AREA,)
 
 
 def _norm_label(label):
     return (label or "").strip().lower()
+
+
+def _small_flow_types():
+    return (1, 3, 4)
 
 
 def _targets_hit(track, biz_rule):
@@ -31,7 +36,8 @@ def _targets_hit(track, biz_rule):
     target_set = {_norm_label(t) for t in targets}
     if label not in target_set:
         return False
-    sm_id = biz_rule.get("small_model_id")
+    flow = int(biz_rule.get("flow_type") or 1)
+    sm_id = biz_rule.get("detector_model_id") if flow == 4 else biz_rule.get("small_model_id")
     track_algo = track.get("algorithm_id")
     if sm_id and track_algo is not None and int(track_algo) != int(sm_id):
         return False
@@ -43,7 +49,7 @@ def track_matches_area_rule(track, biz_rule):
     if not biz_rule or biz_rule.get("post_process") != POST_AREA:
         return False
     flow = int(biz_rule.get("flow_type") or 1)
-    if flow not in (1, 3):
+    if flow not in _small_flow_types():
         return False
     return _targets_hit(track, biz_rule)
 
@@ -56,7 +62,17 @@ def track_matches_line_cross_rule(track, biz_rule):
     if not biz_rule or biz_rule.get("post_process") != POST_LINE_CROSS:
         return False
     flow = int(biz_rule.get("flow_type") or 1)
-    if flow not in (1, 3):
+    if flow not in _small_flow_types():
+        return False
+    return _targets_hit(track, biz_rule)
+
+
+def track_matches_line_count_rule(track, biz_rule):
+    """越线计数：目标类别命中 + LINE_COUNT 后处理"""
+    if not biz_rule or biz_rule.get("post_process") != POST_LINE_COUNT:
+        return False
+    flow = int(biz_rule.get("flow_type") or 1)
+    if flow not in _small_flow_types():
         return False
     return _targets_hit(track, biz_rule)
 
@@ -68,7 +84,7 @@ def track_matches_direction_rule(track, biz_rule):
     if not biz_rule or biz_rule.get("post_process") != POST_DIRECTION:
         return False
     flow = int(biz_rule.get("flow_type") or 1)
-    if flow not in (1, 3):
+    if flow not in _small_flow_types():
         return False
     return _targets_hit(track, biz_rule)
 
@@ -81,7 +97,7 @@ def track_matches_density_rule(track, biz_rule):
     if not biz_rule or biz_rule.get("post_process") != POST_DENSITY:
         return False
     flow = int(biz_rule.get("flow_type") or 1)
-    if flow not in (1, 3):
+    if flow not in _small_flow_types():
         return False
     return _targets_hit(track, biz_rule)
 
@@ -91,7 +107,7 @@ def track_matches_dwell_rule(track, biz_rule):
     if not biz_rule or biz_rule.get("post_process") != POST_DWELL:
         return False
     flow = int(biz_rule.get("flow_type") or 1)
-    if flow not in (1, 3):
+    if flow not in _small_flow_types():
         return False
     return _targets_hit(track, biz_rule)
 
@@ -100,26 +116,38 @@ def track_matches_dwell_rule(track, biz_rule):
 
 def cross_line_segment(prev_pt, cur_pt, line_a, line_b):
     """判断线段 prev_pt→cur_pt 是否跨过有向线段 line_a→line_b（含方向判定）
-    返回: True 表示跨过且方向匹配（从左侧到右侧，方向沿线段方向看）
+    返回: True 表示正向跨过（从左侧到右侧，沿 line_a→line_b 方向看）
+    """
+    return cross_line_direction(prev_pt, cur_pt, line_a, line_b) == "forward"
+
+
+def cross_line_direction(prev_pt, cur_pt, line_a, line_b):
+    """判断轨迹是否跨过计数线，返回 None / 'forward' / 'reverse'。
+    forward：沿 line_a→line_b 方向看，从左侧跨到右侧（正向）
+    reverse：从右侧跨到左侧（逆向）
     """
     if not prev_pt or not cur_pt or not line_a or not line_b:
-        return False
+        return None
     try:
         x1, y1 = float(prev_pt[0]), float(prev_pt[1])
         x2, y2 = float(cur_pt[0]), float(cur_pt[1])
         ax, ay = float(line_a[0]), float(line_a[1])
         bx, by = float(line_b[0]), float(line_b[1])
     except (TypeError, ValueError, IndexError):
-        return False
-    # 用叉积判断两点是否在有向线段两侧
+        return None
+
     def cross(ox, oy, px, py, qx, qy):
         return (px - ox) * (qy - oy) - (py - oy) * (qx - ox)
+
     c1 = cross(ax, ay, bx, by, x1, y1)
     c2 = cross(ax, ay, bx, by, x2, y2)
     if c1 == 0 or c2 == 0 or c1 * c2 > 0:
-        return False  # 同侧或在线上，未跨过
-    # 跨过线段，进一步要求方向：从 c1>0 一侧到 c2<0 一侧（即沿线段方向看的左侧→右侧）
-    return c1 > 0 > c2
+        return None
+    if c1 > 0 > c2:
+        return "forward"
+    if c1 < 0 < c2:
+        return "reverse"
+    return None
 
 
 def direction_match(dx, dy, ref_angle_deg, tolerance_deg=45.0):
@@ -159,7 +187,7 @@ def matched_area_rules(track, zone_cfg):
     if not rules:
         return []
     area_rules = [r for r in rules if r.get("post_process") == POST_AREA
-                  and int(r.get("flow_type") or 0) in (1, 3)]
+                  and int(r.get("flow_type") or 0) in _small_flow_types()]
     return [r for r in area_rules if track_matches_area_rule(track, r)]
 
 
@@ -174,11 +202,13 @@ def matched_rules_for_track(track, zone_cfg):
     for r in rules:
         post = r.get("post_process")
         flow = int(r.get("flow_type") or 0)
-        if flow not in (1, 3):
+        if flow not in _small_flow_types():
             continue
         if post == POST_AREA and track_matches_area_rule(track, r):
             matched.append(r)
         elif post == POST_LINE_CROSS and track_matches_line_cross_rule(track, r):
+            matched.append(r)
+        elif post == POST_LINE_COUNT and track_matches_line_count_rule(track, r):
             matched.append(r)
         elif post == POST_DIRECTION and track_matches_direction_rule(track, r):
             matched.append(r)
@@ -201,6 +231,7 @@ def build_alarm_context(event_type, track, zone_cfg, biz_rule=None):
     post_label_map = {
         POST_AREA: "区域入侵",
         POST_LINE_CROSS: "越线检测",
+        POST_LINE_COUNT: "越线计数",
         POST_DIRECTION: "方向入侵",
         POST_DENSITY: "密度报警",
         POST_DWELL: "滞留报警",
@@ -230,6 +261,16 @@ def build_alarm_context(event_type, track, zone_cfg, biz_rule=None):
             reason = "%s：目标「%s」跨过布控「%s」的警戒线" % (post_label, label or "—", zone_name or "—")
         else:
             reason = "目标「%s」越线" % (label or "—")
+    elif event_type == "line_count":
+        direction = (track or {}).get("line_count_direction") or ""
+        fwd = int((track or {}).get("forward_count") or 0)
+        rev = int((track or {}).get("reverse_count") or 0)
+        dir_txt = "正向" if direction == "forward" else ("逆向" if direction == "reverse" else direction)
+        if biz_rule:
+            reason = "%s：「%s」%s过线，累计 正向 %d / 逆向 %d" % (
+                post_label, zone_name or "—", dir_txt, fwd, rev)
+        else:
+            reason = "%s过线计数 正向 %d / 逆向 %d" % (dir_txt, fwd, rev)
     elif event_type == "direction":
         if biz_rule:
             reason = "%s：目标「%s」在「%s」按设定方向移动" % (post_label, label or "—", zone_name or "—")

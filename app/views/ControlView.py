@@ -15,8 +15,67 @@ API：
 from app.views.ViewsBase import *
 from django.shortcuts import render
 
-from app.models import StreamModel, ZoneModel, AlarmModel
+from app.models import StreamModel, ZoneModel, AlarmModel, BizAlgorithmModel
+import json as _json
 import time as _time
+
+LINE_POSTS = (BizAlgorithmModel.POST_LINE_CROSS, BizAlgorithmModel.POST_LINE_COUNT)
+REGION_POSTS = (
+    BizAlgorithmModel.POST_AREA,
+    BizAlgorithmModel.POST_DWELL,
+    BizAlgorithmModel.POST_DENSITY,
+    BizAlgorithmModel.POST_DIRECTION,
+)
+
+
+def _parse_zone_algo_ids(raw):
+    if isinstance(raw, list):
+        return [int(x) for x in raw if str(x).strip()]
+    if isinstance(raw, str):
+        try:
+            arr = _json.loads(raw)
+            if isinstance(arr, list):
+                return [int(x) for x in arr if str(x).strip()]
+        except Exception:
+            pass
+        return [int(s) for s in raw.split(",") if s.strip()]
+    return []
+
+
+def _validate_zone_geometry(params, algo_ids=None):
+    """校验布控绘制与所选业务算法是否匹配。"""
+    is_required = int(params.get("is_required", 1) or 0)
+    coords_raw = params.get("coordinates", "[]")
+    try:
+        coords = _json.loads(coords_raw) if isinstance(coords_raw, str) else (coords_raw or [])
+    except Exception:
+        coords = []
+    if not isinstance(coords, list):
+        coords = []
+
+    line_a = (params.get("line_a") or "").strip()
+    line_b = (params.get("line_b") or "").strip()
+
+    ids = algo_ids if algo_ids is not None else _parse_zone_algo_ids(params.get("algorithm_ids"))
+    posts = set()
+    if ids:
+        posts = set(
+            BizAlgorithmModel.objects.filter(id__in=ids, state=1).values_list("post_process", flat=True)
+        )
+
+    needs_line = bool(posts & set(LINE_POSTS))
+    needs_region = bool(is_required and (not posts or posts & set(REGION_POSTS) or needs_line))
+
+    if needs_line and (not line_a or not line_b):
+        raise ValueError("所选越线类算法需绘制方向线 A→B")
+
+    if needs_region and len(coords) < 3:
+        raise ValueError("必需区域已开启，请绘制布控区域（至少 3 个点）")
+
+    if not is_required and posts & set(REGION_POSTS):
+        raise ValueError("区域类后处理（区域入侵/滞留/密度/方向）需开启「必需区域」并绘制区域")
+
+    return True
 
 CONTROL_ALARM_EVENT_TYPES = ('entered_zone', 'loiter')
 
@@ -81,6 +140,7 @@ def _control_to_dict(z):
         "density_threshold": int(getattr(z, "density_threshold", 0) or 0),
         "algorithms": algos,
         "algorithm_ids": [a["id"] for a in algos],
+        "state": int(getattr(z, "state", 1) or 0),
         "create_time": str(z.create_time),
     }
 
@@ -168,14 +228,21 @@ def build_analysis_status_data(lite=False):
     local_instances = m._worker_pool.instance_info()
     inference_workers_alive = 0
     inference_workers_config = 0
+    inference_degraded = False
+    inference_timeout_count = 0
     if shared_inference:
         try:
             from app.analysis.inference_pool import get_inference_pool
             pool = get_inference_pool()
             inference_workers_alive = pool.instance_count()
             inference_workers_config = pool.num_workers
+            pool_st = pool.status()
+            inference_degraded = bool(pool_st.get("inference_degraded"))
+            inference_timeout_count = int(pool_st.get("timeout_count") or 0)
         except Exception:
             inference_workers_alive = 0
+            inference_degraded = False
+            inference_timeout_count = 0
     else:
         try:
             from app.utils.GlobalUtils import g_config
@@ -213,6 +280,8 @@ def build_analysis_status_data(lite=False):
         "engine_instances_local": len(local_instances),
         "inference_shared": shared_inference,
         "inference_workers_alive": inference_workers_alive,
+        "inference_degraded": inference_degraded if shared_inference else False,
+        "inference_timeout_count": inference_timeout_count if shared_inference else 0,
         "analysis_fps_avg": (
             round(sum(r.get("analysis_fps", 0) for r in running) / len(running), 1) if running else 0.0
         ),
@@ -325,12 +394,14 @@ def control_openAdd(request):
                         algo_ids_req = [s for s in algo_ids_req.split(",") if s]
                 if not algo_ids_req:
                     raise ValueError(LANG_VIEWS_T(request, "zone_algo_required"))
+                algo_ids_int = [int(x) for x in algo_ids_req]
+                _validate_zone_geometry(params, algo_ids_int)
                 detect_interval_sec, detect_frames = _parse_control_detect_rate(params)
                 zone = ZoneModel(
                     stream=stream,
                     name=params.get("name", "").strip(),
                     coordinates=params.get("coordinates", "[]"),
-                    is_required=int(params.get("is_required", 0)),
+                    is_required=int(params.get("is_required", 1)),
                     loiter_threshold=int(params.get("loiter_threshold", 0)),
                     detect_interval_sec=detect_interval_sec,
                     detect_frames=detect_frames,
@@ -338,6 +409,7 @@ def control_openAdd(request):
                     line_a=params.get("line_a", ""),
                     line_b=params.get("line_b", ""),
                     density_threshold=int(params.get("density_threshold", 0) or 0),
+                    state=0,
                 )
                 zone.save()
                 algo_ids = params.get("algorithm_ids") or []
@@ -353,7 +425,9 @@ def control_openAdd(request):
                     zone.algorithms.set(qs)
                 try:
                     from app.analysis.manager import AnalysisManager
-                    AnalysisManager().reload_zones(stream_id)
+                    m = AnalysisManager()
+                    if stream_id in m.list_running():
+                        m.reload_zones(stream_id)
                 except Exception:
                     pass
                 ret = True
@@ -408,12 +482,19 @@ def control_openEdit(request):
                             algo_ids = [s for s in algo_ids.split(",") if s]
                     if not algo_ids:
                         raise ValueError(LANG_VIEWS_T(request, "zone_algo_required"))
+                    algo_ids_int = [int(x) for x in algo_ids]
+                    _validate_zone_geometry(params, algo_ids_int)
                     from app.models import BizAlgorithmModel
-                    qs = BizAlgorithmModel.objects.filter(id__in=[int(x) for x in algo_ids], state=1)
+                    qs = BizAlgorithmModel.objects.filter(id__in=algo_ids_int, state=1)
                     z.algorithms.set(qs)
+                elif any(k in params for k in ("coordinates", "line_a", "line_b", "is_required")):
+                    algo_ids_int = list(z.algorithms.filter(state=1).values_list("id", flat=True))
+                    _validate_zone_geometry(params, algo_ids_int)
                 try:
                     from app.analysis.manager import AnalysisManager
-                    AnalysisManager().reload_zones(z.stream_id)
+                    m = AnalysisManager()
+                    if z.stream_id in m.list_running():
+                        m.reload_zones(z.stream_id)
                 except Exception:
                     pass
                 ret = True
@@ -441,7 +522,13 @@ def control_openDel(request):
                 z.delete()
                 try:
                     from app.analysis.manager import AnalysisManager
-                    AnalysisManager().reload_zones(sid)
+                    from app.models import ZoneModel as _ZM
+                    m = AnalysisManager()
+                    if m.is_running(sid):
+                        if _ZM.objects.filter(stream_id=sid, state=1).exists():
+                            m.reload_zones(sid)
+                        else:
+                            m.stop(sid)
                 except Exception:
                     pass
                 ret = True
@@ -453,6 +540,74 @@ def control_openDel(request):
     else:
         msg = LANG_VIEWS_T(request, "msg_method_not_supported")
     return f_responseJson({"code": 1000 if ret else 0, "msg": msg})
+
+
+def control_openToggleZone(request):
+    """单条布控手动启停：仅影响该布控，同摄像头其它布控互不干扰。"""
+    ret = False
+    msg = LANG_VIEWS_T(request, "msg_unknown_error")
+    data = {}
+    if request.method == 'POST':
+        __check_ret, __check_msg = f_checkRequestSafe(request)
+        if __check_ret:
+            params = f_parsePostParams(request)
+            try:
+                zid = int(params.get("id", 0))
+                if zid <= 0:
+                    raise ValueError(LANG_VIEWS_T(request, "msg_invalid_parameter"))
+                z = ZoneModel.objects.get(id=zid)
+                if "enabled" in params or "state" in params:
+                    enabled = int(params.get("enabled", params.get("state", 0)))
+                else:
+                    enabled = 0 if int(z.state or 0) == 1 else 1
+                from app.analysis.manager import AnalysisManager
+                from app.models import StreamModel
+                m = AnalysisManager()
+                sid = int(z.stream_id)
+                stream = StreamModel.objects.get(id=sid)
+
+                def _restart_stream_analysis():
+                    """重启分析流水线，确保布控列表与运行时状态一致（避免热更新失败导致无报警）。"""
+                    if m.is_running(sid):
+                        m.stop(sid)
+                    ok, info = m.start(stream)
+                    if not ok:
+                        raise ValueError(info or LANG_VIEWS_T(request, "msg_unknown_error"))
+                    return ok, info
+
+                if enabled:
+                    z.state = 1
+                    z.save()
+                    if not m.is_running(sid):
+                        ok, info = m.start(stream)
+                        if not ok:
+                            z.state = 0
+                            z.save()
+                            raise ValueError(info or LANG_VIEWS_T(request, "msg_unknown_error"))
+                    else:
+                        _restart_stream_analysis()
+                else:
+                    z.state = 0
+                    z.save()
+                    if m.is_running(sid):
+                        if ZoneModel.objects.filter(stream_id=sid, state=1).exists():
+                            _restart_stream_analysis()
+                        else:
+                            m.stop(sid)
+                invalidate_analysis_status_cache()
+                ret = True
+                data = {"id": z.id, "state": z.state, "stream_id": z.stream_id}
+                msg = LANG_VIEWS_T(
+                    request,
+                    "zone_started" if z.state == 1 else "zone_stopped",
+                )
+            except Exception as e:
+                msg = str(e)
+        else:
+            msg = __check_msg
+    else:
+        msg = LANG_VIEWS_T(request, "msg_method_not_supported")
+    return f_responseJson({"code": 1000 if ret else 0, "msg": msg, "data": data})
 
 
 def control_openRecentAlarms(request):

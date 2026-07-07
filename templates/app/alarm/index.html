@@ -27,6 +27,11 @@ github地址：https://github.com/beixiaocai/rebucca
 .btn{padding:7px 14px;font-size:12px;border-radius:6px;border:1px solid var(--c-border,#dcdfe6);background:#fff;cursor:pointer;}
 .btn:hover{color:#b91c1c;border-color:#fca5a5;background:#fef2f2;}
 .alarm-auto{font-size:11px;color:#9ca3af;}
+.alarm-auto-refresh{display:flex;align-items:center;gap:6px;font-size:12px;color:#6b7280;white-space:nowrap;}
+.alarm-auto-refresh label{display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none;}
+.alarm-auto-refresh input[type="number"]{width:46px;padding:5px 6px;font-size:12px;border:1px solid #fca5a5;border-radius:6px;text-align:center;}
+.alarm-auto-refresh input[type="checkbox"]{width:14px;height:14px;cursor:pointer;}
+.alarm-auto-refresh .countdown{min-width:32px;font-variant-numeric:tabular-nums;color:#b91c1c;font-weight:600;}
 .alarm-body{padding:16px 20px;min-height:200px;}
 .alarm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;}
 .alarm-item{border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;background:#fff;transition:.15s;display:flex;flex-direction:column;}
@@ -37,6 +42,7 @@ github地址：https://github.com/beixiaocai/rebucca
 .alarm-item .tag{position:absolute;top:6px;left:6px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(220,38,38,.92);color:#fff;}
 .alarm-item .tag.loiter{background:rgba(217,119,6,.92);}
 .alarm-item .tag.motion{background:rgba(99,102,241,.85);}
+.alarm-item .alarm-id{position:absolute;top:6px;right:6px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(15,23,42,.72);color:#fff;font-variant-numeric:tabular-nums;letter-spacing:.02em;}
 .alarm-item .zoom{position:absolute;bottom:4px;right:4px;font-size:12px;color:#fff;background:rgba(0,0,0,.5);border-radius:3px;padding:0 5px;line-height:18px;}
 .alarm-item .info{padding:9px 11px;display:flex;flex-direction:column;gap:4px;flex:1;}
 .alarm-item .info .lbl{font-size:13px;font-weight:600;color:#1f2937;}
@@ -72,8 +78,16 @@ github地址：https://github.com/beixiaocai/rebucca
           <option value="">{{ T.alarm_all_types|default:'全部报警' }}</option>
           <option value="entered_zone">{{ T.ev_entered_zone|default:'进入区域' }}</option>
           <option value="loiter">{{ T.ev_loiter|default:'滞留告警' }}</option>
+          <option value="line_count">{{ T.ev_line_count|default:'越线计数告警' }}</option>
+          <option value="line_cross">{{ T.ev_line_cross|default:'越线检测' }}</option>
         </select>
         <button class="btn" onclick="loadAlarms()">{{ T.btn_refresh_symbol|default:'↻ 刷新' }}</button>
+        <div class="alarm-auto-refresh">
+          <label><input type="checkbox" id="autoRefreshOn" checked onchange="onAutoRefreshToggle()">{{ T.alarm_auto_refresh|default:'自动刷新' }}</label>
+          <input type="number" id="autoRefreshSec" min="3" max="300" value="10" title="{{ T.alarm_auto_refresh_sec_hint|default:'刷新间隔（秒）' }}" onchange="onAutoRefreshSecChange()" onblur="onAutoRefreshSecChange()">
+          <span>{{ T.alarm_auto_refresh_unit|default:'秒' }}</span>
+          <span class="countdown" id="autoRefreshCountdown">10s</span>
+        </div>
         <button class="btn" onclick="toggleSelectAll()" id="btnSelectAll">{{ T.timeline_select_all|default:'全选' }}</button>
         <button class="btn" onclick="batchDel()">{{ T.timeline_batch_del|default:'批量删除' }}</button>
         <button class="btn" onclick="clearAlarms()" style="color:#b91c1c;border-color:#fca5a5;background:#fef2f2;">{{ T.timeline_clear_alarms|default:'清空报警' }}</button>
@@ -95,7 +109,82 @@ var g_streams = [];
 var g_selectedIds = new Set();
 var g_currentPage = 1;
 var g_pageSize = 12;
-var ALARM_TYPES = ['entered_zone', 'loiter'];
+var ALARM_TYPES = ['entered_zone', 'loiter', 'line_count', 'line_cross'];
+var g_autoRefreshTimer = null;
+var g_autoRefreshCountdown = 10;
+var g_autoRefreshSec = 10;
+var AUTO_REFRESH_KEY = 'rebucca_alarm_auto_refresh_sec';
+
+function formatAlarmTime(ts){
+  if(!ts) return '';
+  var s = String(ts).replace('T', ' ').trim();
+  s = s.replace(/\.\d+$/, '');
+  if(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(s)){
+    return s.substring(0, 19);
+  }
+  if(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(s)){
+    return s + ':00';
+  }
+  return s.length >= 19 ? s.substring(0, 19) : s;
+}
+
+function loadAutoRefreshPref(){
+  try{
+    var v = parseInt(localStorage.getItem(AUTO_REFRESH_KEY), 10);
+    if(!isNaN(v) && v >= 3 && v <= 300) g_autoRefreshSec = v;
+  }catch(e){}
+  var inp = document.getElementById('autoRefreshSec');
+  if(inp) inp.value = g_autoRefreshSec;
+}
+
+function saveAutoRefreshPref(){
+  try{ localStorage.setItem(AUTO_REFRESH_KEY, String(g_autoRefreshSec)); }catch(e){}
+}
+
+function updateCountdownDisplay(){
+  var el = document.getElementById('autoRefreshCountdown');
+  if(!el) return;
+  var on = document.getElementById('autoRefreshOn') && document.getElementById('autoRefreshOn').checked;
+  el.textContent = on ? (g_autoRefreshCountdown + 's') : '—';
+}
+
+function resetAutoRefreshCountdown(){
+  g_autoRefreshCountdown = g_autoRefreshSec;
+  updateCountdownDisplay();
+}
+
+function tickAutoRefresh(){
+  var on = document.getElementById('autoRefreshOn');
+  if(!on || !on.checked) return;
+  g_autoRefreshCountdown--;
+  if(g_autoRefreshCountdown <= 0){
+    loadAlarms();
+    return;
+  }
+  updateCountdownDisplay();
+}
+
+function startAutoRefresh(){
+  if(g_autoRefreshTimer) clearInterval(g_autoRefreshTimer);
+  resetAutoRefreshCountdown();
+  g_autoRefreshTimer = setInterval(tickAutoRefresh, 1000);
+}
+
+function onAutoRefreshToggle(){
+  resetAutoRefreshCountdown();
+}
+
+function onAutoRefreshSecChange(){
+  var inp = document.getElementById('autoRefreshSec');
+  if(!inp) return;
+  var v = parseInt(inp.value, 10);
+  if(isNaN(v) || v < 3) v = 3;
+  if(v > 300) v = 300;
+  g_autoRefreshSec = v;
+  inp.value = v;
+  saveAutoRefreshPref();
+  resetAutoRefreshCountdown();
+}
 
 function onAlarmFilterChange(){
   g_currentPage = 1;
@@ -127,9 +216,15 @@ function evName(t){
   var m = {
     entered_zone: _t('ev_entered_zone','进入区域'),
     loiter: _t('ev_loiter','滞留告警'),
+    line_count: _t('ev_line_count','越线计数告警'),
+    line_cross: _t('ev_line_cross','越线检测'),
     motion: _t('ev_motion','运动')
   };
   return m[t] || t;
+}
+
+function sortByIdDesc(list){
+  return (list || []).slice().sort(function(a, b){ return (parseInt(b.id, 10) || 0) - (parseInt(a.id, 10) || 0); });
 }
 
 function loadAlarms(page){
@@ -140,7 +235,7 @@ function loadAlarms(page){
   var sid = document.getElementById('fStream').value; if(sid) p.stream_id = sid;
   var t = document.getElementById('fType').value; if(t) p.event_type = t;
   Api.get('/alarm/openIndex', p).then(function(res){
-    var list = (res && res.code===1000 && res.data) ? res.data : [];
+    var list = sortByIdDesc((res && res.code===1000 && res.data) ? res.data : []);
     var pageData = (res && res.pageData) ? res.pageData : {};
     // 清理失效的选中项
     var validIds = {}; list.forEach(function(e){ validIds[e.id]=true; });
@@ -148,6 +243,7 @@ function loadAlarms(page){
     renderAlarms(list);
     updateSelectAllBtn();
     renderPagination(document.getElementById('pagination'), pageData, loadAlarms);
+    resetAutoRefreshCountdown();
   });
 }
 
@@ -174,17 +270,17 @@ function renderAlarms(list){
     var reason = e.alarm_reason || e.description || meta.alarm_reason || '';
     var zoneName = e.zone_name || meta.zone_name || '';
     var dur = (meta.duration !== undefined && meta.duration>0) ? (_t('zone_alarm_duration','停留')+' '+Math.round(meta.duration)+'s') : '';
-    var tm = (e.timestamp||'').replace('T',' ').substring(5,16);
+    var tm = formatAlarmTime(e.timestamp);
     var checked = g_selectedIds.has(e.id) ? 'checked' : '';
     var clickOpen = snap ? 'onclick="openSnap(\''+escapeHtml(snap)+'\',\''+escapeHtml((e.stream_name||'')+' · '+tagTxt+' · '+(reason||lbl)+' · '+tm)+'\')"' : '';
     html += '<div class="alarm-item">'
-      + '<div class="thumb" '+clickOpen+'><span class="'+tagCls+'">'+tagTxt+'</span>'+thumb+'</div>'
+      + '<div class="thumb" '+clickOpen+'><span class="'+tagCls+'">'+tagTxt+'</span><span class="alarm-id">#'+e.id+'</span>'+thumb+'</div>'
       + '<div class="info">'
       +   '<span class="lbl">'+escapeHtml(lbl)+'</span>'
       +   (bizAlgo?'<span class="algo">'+_t('alarm_biz_algorithm','所属算法')+'：'+escapeHtml(bizAlgo)+'</span>':'')
       +   (zoneName?'<span class="zone">'+_t('alarm_zone_name','所属布控')+'：'+escapeHtml(zoneName)+'</span>':'')
       +   (reason?'<span class="reason">'+_t('alarm_reason','报警原因')+'：'+escapeHtml(reason)+'</span>':'')
-      +   '<span class="meta"><span>'+escapeHtml(e.stream_name||('#'+e.stream_id))+'</span><span>'+tm+'</span></span>'
+      +   '<span class="meta"><span>ID '+e.id+'</span><span>'+escapeHtml(e.stream_name||('#'+e.stream_id))+'</span><span>'+tm+'</span></span>'
       +   (dur?'<span class="meta dur">'+dur+'</span>':'')
       + '</div>'
       + '<div class="row-bot">'
@@ -267,9 +363,11 @@ function clearAlarms(){
   });
 }
 
+loadAutoRefreshPref();
 loadStreams(function(){
   fillStreamSelect();
   loadAlarms();
+  startAutoRefresh();
 });
 </script>
 {% endblock %}

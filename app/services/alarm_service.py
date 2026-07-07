@@ -17,6 +17,7 @@ ALARM_EVENT_TYPES = (
     'loiter',         # AREA 滞留
     'dwell',          # DWELL 滞留
     'line_cross',     # LINE_CROSS 越线
+    'line_count',     # LINE_COUNT 越线计数超阈值
     'direction',      # DIRECTION 方向入侵
     'density',        # DENSITY 密度报警
 )

@@ -102,12 +102,21 @@ github地址：https://github.com/beixiaocai/rebucca
   background:#fff;border-right:1px solid var(--c-border-light,#eef2f5);
 }
 .zm-stage-bar{
-  display:flex;align-items:center;gap:10px;padding:12px 16px;
+  display:flex;flex-direction:column;gap:8px;padding:10px 16px;
   background:linear-gradient(135deg,#f8fbfa 0%,#f0f9f6 100%);
   border-bottom:1px solid var(--c-border-light,#eef2f5);
 }
-.zm-stage-bar select{
-  flex:1;max-width:240px;padding:6px 10px;font-size:12px;
+.zm-stage-row{
+  display:flex;align-items:center;gap:8px;min-width:0;
+}
+.zm-stage-row-video{gap:10px;}
+.zm-stage-row-draw{
+  gap:8px;padding-top:8px;border-top:1px solid rgba(226,232,240,.85);
+  flex-wrap:wrap;
+}
+.zm-stage-bar select,
+.zm-stream-select{
+  flex:1;min-width:0;width:100%;padding:7px 10px;font-size:12px;
   border:1px solid var(--c-border,#dcdfe6);border-radius:6px;
   background:#fff;color:#2c3e50;
 }
@@ -115,10 +124,14 @@ github地址：https://github.com/beixiaocai/rebucca
 .zm-badge{
   font-size:11px;padding:3px 10px;border-radius:10px;
   background:#fef3c7;color:#92400e;font-weight:600;white-space:nowrap;
-  border:1px solid #fde68a;
+  border:1px solid #fde68a;flex-shrink:0;
 }
 .zm-badge.ready{background:#d1fae5;color:#065f46;border-color:#a7f3d0;}
-.zm-tool-group{display:flex;gap:6px;margin-left:auto;}
+.zm-tool-group{display:flex;gap:6px;flex-shrink:0;}
+.zm-draw-actions{margin-left:auto;}
+.zm-row-label{
+  font-size:11px;font-weight:600;color:#64748b;white-space:nowrap;flex-shrink:0;
+}
 .zm-tool{
   width:30px;height:30px;border:1px solid var(--c-border,#dcdfe6);border-radius:6px;cursor:pointer;
   background:#fff;color:#64748b;font-size:13px;
@@ -140,7 +153,30 @@ github地址：https://github.com/beixiaocai/rebucca
   box-shadow:0 2px 12px rgba(0,0,0,.06);
 }
 .draw-wrap img{display:block;width:100%;height:auto;max-height:34vh;object-fit:contain;margin:0 auto;background:#f8fafc;}
-.draw-wrap canvas{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;}
+.zone-video-wrap{
+  position:relative;width:100%;min-height:200px;max-height:34vh;background:#0f172a;overflow:hidden;
+}
+.zone-video-wrap #zoneVideoPlayer{width:100%;height:100%;min-height:200px;max-height:34vh;}
+.draw-wrap canvas{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;z-index:2;pointer-events:auto;}
+.zone-video-wrap #zoneVideoPlayer,
+.zone-video-wrap #zoneVideoPlayer *{pointer-events:none;}
+.zm-player-overlay{
+  position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:rgba(15,23,42,.72);color:#e2e8f0;font-size:13px;gap:8px;pointer-events:none;
+}
+.zm-draw-modes{display:flex;gap:4px;flex-wrap:nowrap;align-items:center;flex-shrink:0;}
+.zm-draw-modes .zm-tool.active{background:#169F85;color:#fff;border-color:#169F85;}
+.zm-draw-modes .zm-tool-line.active{background:#dc2626;border-color:#dc2626;color:#fff;}
+.zm-draw-modes .zm-tool-line:not(.active){color:#dc2626;border-color:#fecaca;}
+.zm-draw-sep{width:1px;height:22px;background:#e2e8f0;margin:0 2px;flex-shrink:0;}
+.zm-line-status{
+  font-size:11px;color:#64748b;flex:1;min-width:80px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+@media(max-width:520px){
+  .zm-stage-row-draw .zm-line-status{flex-basis:100%;order:3;margin-left:0;}
+  .zm-draw-actions{margin-left:0;}
+}
 .draw-wrap.no-snap{
   min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;
   background:#fff;border:2px dashed #d1d5db;
@@ -269,6 +305,12 @@ github地址：https://github.com/beixiaocai/rebucca
 .analysis-badge.running{background:#d1fae5;color:#065f46;border-color:#a7f3d0;}
 .analysis-badge.running::before{background:#10b981;box-shadow:0 0 0 3px rgba(16,185,129,.18);animation:pulse 1.6s infinite;}
 .analysis-badge.stopped{background:#f3f4f6;color:#6b7280;border-color:#e5e7eb;}
+.analysis-badge.reconnecting{background:#fef3c7;color:#92400e;border-color:#fde68a;}
+.analysis-badge.reconnecting::before{background:#f59e0b;animation:pulse 1.2s infinite;}
+.analysis-badge.stalled{background:#fee2e2;color:#991b1b;border-color:#fecaca;}
+.analysis-badge.stalled::before{background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.15);}
+.tag-warn{background:#fef3c7;color:#92400e;}
+.tag-err{background:#fee2e2;color:#991b1b;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 .btn-analyze-start{color:#0e7a65;border-color:#169F85;}
 .btn-analyze-start:hover{background:#ecfdf5;}
@@ -285,7 +327,10 @@ github地址：https://github.com/beixiaocai/rebucca
 .act-btn:hover{background:#f3f4f6;color:#169F85;}
 .act-btn[disabled]{opacity:.35;cursor:not-allowed;pointer-events:none;}
 .act-btn.act-danger:hover{background:#fef2f2;color:#b91c1c;}
-.act-btn.act-analyze-start{color:#0e7a65;}
+.act-btn.act-zone-on{color:#0e7a65;font-weight:700;}
+.act-btn.act-zone-on:hover{background:#ecfdf5;}
+.act-btn.act-zone-off{color:#94a3b8;}
+.act-btn.act-zone-off:hover{background:#f1f5f9;color:#64748b;}
 .act-btn.act-analyze-start:hover{background:#ecfdf5;color:#059669;}
 .act-btn.act-analyze-stop{color:#dc2626;}
 .act-btn.act-analyze-stop:hover{background:#fef2f2;color:#b91c1c;}
@@ -405,7 +450,6 @@ github地址：https://github.com/beixiaocai/rebucca
           <option value="">{{ T.zone_all_cameras|default:'全部摄像头' }}</option>
         </select>
         <span id="analysisStatusBadge" class="analysis-badge" style="display:none"></span>
-        <button id="btnToggleAnalysis" class="btn" onclick="toggleAnalysis()" style="display:none">{{ T.zone_toggle_analysis|default:'启动分析' }}</button>
         <button class="btn" onclick="loadZones()">{{ T.btn_refresh_symbol|default:'↻ 刷新' }}</button>
         <button class="btn btn-primary" onclick="openZoneModal()">{{ T.btn_add_zone|default:'+ 添加布控' }}</button>
       </div>
@@ -416,7 +460,7 @@ github地址：https://github.com/beixiaocai/rebucca
       <div class="ov-item"><span class="lbl">{{ T.zone_ov_total_cam|default:'摄像头总数' }}</span><span class="val" id="ovTotalCam">0</span></div>
       <div class="ov-item"><span class="lbl">{{ T.zone_ov_running|default:'运行分析' }}</span><span class="val green" id="ovRunning">0 / 0</span><span class="sub" id="ovFps">{{ T.zone_ov_fps_avg|default:'平均 FPS 0.0' }}</span></div>
       <div class="ov-item"><span class="lbl">{{ T.zone_ov_engine_instances|default:'布控实例' }}</span><span class="val blue engine-clickable" id="ovInstances" onclick="openEngineModal()" title="{{ T.zone_ctrl_modal_click|default:'点击管理布控实例' }}">0</span><span class="sub engine-clickable" id="ovReuse" onclick="openEngineModal()">{{ T.zone_ov_reuse|default:'全部按算法缓存复用' }}</span></div>
-      <div class="ov-item"><span class="lbl">{{ T.zone_ov_zones|default:'区域 / 启用' }}</span><span class="val" id="ovZones">0 / 0</span></div>
+      <div class="ov-item"><span class="lbl">{{ T.zone_ov_zones|default:'布控 / 运行中' }}</span><span class="val" id="ovZones">0 / 0</span></div>
       <div class="ov-item"><span class="lbl">{{ T.zone_ov_alarms|default:'近期报警' }}</span><span class="val red" id="ovAlarms">0</span></div>
     </div>
 
@@ -424,10 +468,11 @@ github地址：https://github.com/beixiaocai/rebucca
       <table class="zone-table" id="zoneTable">
         <thead>
           <tr>
-            <th>ID</th><th>{{ T.zone_camera|default:'摄像头' }}</th><th>{{ T.zone_name|default:'布控名称' }}</th>
+            <th>{{ T.th_id|default:'ID' }}</th><th>{{ T.zone_camera|default:'摄像头' }}</th><th>{{ T.zone_name|default:'布控名称' }}</th>
             <th>{{ T.zone_algorithms|default:'业务算法' }}</th>
             <th>{{ T.zone_detect_rate|default:'检测频率' }}</th>
             <th>{{ T.zone_required|default:'必需' }}</th><th>{{ T.zone_loiter|default:'滞留(秒)' }}</th>
+            <th>{{ T.zone_state|default:'状态' }}</th>
             <th>{{ T.col_action|default:'操作' }}</th>
           </tr>
         </thead>
@@ -458,13 +503,25 @@ github地址：https://github.com/beixiaocai/rebucca
       <!-- 左侧画布 -->
       <div class="zm-stage">
         <div class="zm-stage-bar">
-          <select id="f_stream" onchange="onStreamChange()"></select>
-          <span class="zm-badge" id="pointStatus">{{ T.zone_no_points|default:'0 个点' }}</span>
-          <div class="zm-tool-group">
-            <button type="button" class="zm-tool" onclick="undoPoint()" title="{{ T.zone_undo|default:'撤销' }}">↩</button>
-            <button type="button" class="zm-tool" onclick="clearPoints()" title="{{ T.zone_clear|default:'清除' }}">⌫</button>
-            <button type="button" class="zm-tool zm-tool-finish" id="btnFinishDraw" onclick="finishDraw()" title="{{ T.zone_finish_draw|default:'完成绘制' }}">✓</button>
-            <button type="button" class="zm-tool" onclick="refreshSnap()" title="{{ T.zone_refresh_snap|default:'刷新画面' }}">↻</button>
+          <div class="zm-stage-row zm-stage-row-video">
+            <select id="f_stream" class="zm-stream-select" onchange="onStreamChange()"></select>
+            <button type="button" class="zm-tool" onclick="refreshLivePreview()" title="{{ T.zone_refresh_live|default:'重新连接视频' }}">↻</button>
+          </div>
+          <div class="zm-stage-row zm-stage-row-draw" id="drawToolRow">
+            <span class="zm-row-label">{{ T.zone_draw_tools|default:'绘制' }}</span>
+            <div class="zm-tool-group zm-draw-modes" id="drawModeBar">
+              <button type="button" class="zm-tool active" data-mode="rect" onclick="setDrawMode('rect')" title="{{ T.zone_draw_rect|default:'矩形区域' }}">▭</button>
+              <button type="button" class="zm-tool" data-mode="polygon" onclick="setDrawMode('polygon')" title="{{ T.zone_draw_polygon|default:'多边形' }}">⬠</button>
+              <span class="zm-draw-sep" aria-hidden="true"></span>
+              <button type="button" class="zm-tool zm-tool-line" data-mode="line" id="btnDrawLine" onclick="setDrawMode('line')" title="{{ T.zone_draw_line|default:'方向线 A→B' }}">→</button>
+            </div>
+            <span class="zm-badge" id="pointStatus">{{ T.zone_no_points|default:'0 个点' }}</span>
+            <span class="zm-line-status" id="lineStatus"></span>
+            <div class="zm-tool-group zm-draw-actions">
+              <button type="button" class="zm-tool" onclick="undoPoint()" title="{{ T.zone_undo|default:'撤销' }}">↩</button>
+              <button type="button" class="zm-tool" onclick="clearCurrentDraw()" title="{{ T.zone_clear_current|default:'清除当前图形' }}">⌫</button>
+              <button type="button" class="zm-tool zm-tool-finish" id="btnFinishDraw" onclick="finishDraw()" title="{{ T.zone_finish_draw|default:'完成绘制' }}">✓</button>
+            </div>
           </div>
         </div>
         <div class="zm-canvas-box">
@@ -475,7 +532,7 @@ github地址：https://github.com/beixiaocai/rebucca
         </div>
         <div class="zm-hint-bar">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-          {{ T.zone_draw_tip|default:'左键添加顶点 · 点击首点或按 ✓ 完成 · 右键撤销' }}
+          <span id="drawHintText">{{ T.zone_draw_tip_three|default:'三种图形可叠加：▭ 矩形 · ⬠ 多边形 · → 方向线 A→B（箭头为正向）· 右键撤销当前工具' }}</span>
         </div>
       </div>
 
@@ -505,10 +562,11 @@ github地址：https://github.com/beixiaocai/rebucca
             <div class="zm-field">
               <label>{{ T.zone_required|default:'必需区域' }}</label>
               <div class="zm-toggle-row" id="reqToggle">
-                <button type="button" class="zm-toggle active" data-val="0" onclick="setToggle('reqToggle',0,'f_required')">{{ T.zone_no|default:'否' }}</button>
-                <button type="button" class="zm-toggle" data-val="1" onclick="setToggle('reqToggle',1,'f_required')">{{ T.zone_yes|default:'是' }}</button>
+                <button type="button" class="zm-toggle" data-val="0" onclick="setToggle('reqToggle',0,'f_required');onRequiredChange()">{{ T.zone_no|default:'否' }}</button>
+                <button type="button" class="zm-toggle active" data-val="1" onclick="setToggle('reqToggle',1,'f_required');onRequiredChange()">{{ T.zone_yes|default:'是' }}</button>
               </div>
-              <input type="hidden" id="f_required" value="0">
+              <input type="hidden" id="f_required" value="1">
+              <div class="biz-hint" id="zoneRequiredHint" style="margin-top:6px;font-size:11px;color:#64748b;"></div>
             </div>
           </div>
           <div class="zm-field">
@@ -528,7 +586,7 @@ github地址：https://github.com/beixiaocai/rebucca
             </div>
           </div>
           <div class="zm-field">
-            <label>{{ T.zone_algorithms|default:'业务算法' }} <span style="font-weight:400;color:#9ca3af;font-size:11px;">({{ T.zone_algorithms_hint|default:'可多选，区域启用后将按所选业务算法进行分析' }})</span></label>
+            <label>{{ T.zone_algorithms|default:'业务算法' }} <span style="font-weight:400;color:#9ca3af;font-size:11px;">({{ T.zone_algorithms_hint|default:'可多选' }})</span></label>
             <div class="zm-algo-wrap">
               <div class="zm-algo-bar">
                 <span class="cnt" id="algoCount">{{ T.zone_algorithms_selected|default:'已选 {n} 个业务算法' }}</span>
@@ -570,52 +628,106 @@ github地址：https://github.com/beixiaocai/rebucca
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'lib/easyPlayer/js/easyplayer-pro.js' %}"></script>
 <script>
 function onFilterStreamChange(){
   loadZonePageData();
 }
 
+function getStreamStatusInfo(streamId){
+  streamId = parseInt(streamId, 10) || 0;
+  if(!streamId) return null;
+  for(var i=0;i<g_runningStreams.length;i++){
+    var r = g_runningStreams[i];
+    if(typeof r === 'object' && r.stream_id === streamId) return r;
+  }
+  return null;
+}
+
+function isStreamAnalysisRunning(streamId){
+  var info = getStreamStatusInfo(streamId);
+  if(!info) return false;
+  return info.running !== false && info.stream_health !== 'stopped';
+}
+
+function getStreamHealth(streamId){
+  var info = getStreamStatusInfo(streamId);
+  if(!info) return 'stopped';
+  return info.stream_health || (info.running ? 'ok' : 'stopped');
+}
+
+function streamHealthLabel(health){
+  if(health === 'ok') return _t('zone_health_ok','正常');
+  if(health === 'reconnecting' || health === 'connecting') return _t('zone_health_reconnecting','重连中');
+  if(health === 'disconnected') return _t('zone_health_disconnected','视频断开');
+  if(health === 'stalled') return _t('zone_health_stalled','视频中断');
+  return _t('zone_analysis_stopped','分析未启动');
+}
+
+function streamHealthBadgeClass(health){
+  if(health === 'ok') return 'running';
+  if(health === 'reconnecting' || health === 'connecting') return 'reconnecting';
+  if(health === 'stalled' || health === 'disconnected') return 'stalled';
+  return 'stopped';
+}
+
+var g_healthToastShown = {};
+
+function maybeNotifyStreamHealth(streamId, health){
+  streamId = parseInt(streamId, 10) || 0;
+  if(!streamId) return;
+  var key = streamId + ':' + health;
+  if(health === 'stalled' || health === 'disconnected'){
+    if(!g_healthToastShown[key]){
+      g_healthToastShown[key] = true;
+      showToast(_t('zone_health_stalled_toast','视频流中断，分析已停止工作，请手动重启分析'), 'warning', 6000);
+    }
+  } else if(health === 'ok'){
+    g_healthToastShown = {};
+  }
+}
+
 function refreshAnalysisUI(){
   var sid = parseInt(document.getElementById('filterStream').value, 10) || 0;
   var badge = document.getElementById('analysisStatusBadge');
-  var btn = document.getElementById('btnToggleAnalysis');
-  // 找到该 stream 的运行信息
+  if(!sid){
+    badge.style.display = 'inline-flex';
+    var n = g_runningStreams.length;
+    badge.className = 'analysis-badge ' + (n>0?'running':'stopped');
+    badge.textContent = _t('zone_analysis_running_count','分析中：{n}').replace('{n}', n);
+    return;
+  }
   var info = null;
   for(var i=0;i<g_runningStreams.length;i++){
     var r = g_runningStreams[i];
     if((typeof r === 'object' && r.stream_id===sid) || r===sid){ info = (typeof r==='object'?r:null); break; }
   }
-  if(!sid){
-    // 全部摄像头：显示运行数量
-    badge.style.display = 'inline-flex';
-    var n = g_runningStreams.length;
-    badge.className = 'analysis-badge ' + (n>0?'running':'stopped');
-    badge.textContent = _t('zone_analysis_running_count','分析中：{n}').replace('{n}', n);
-    btn.style.display = 'none';
-    return;
-  }
-  var running = !!info;
+  var running = !!info && info.running !== false;
+  var health = info ? (info.stream_health || 'ok') : 'stopped';
   badge.style.display = 'inline-flex';
-  badge.className = 'analysis-badge ' + (running?'running':'stopped');
+  badge.className = 'analysis-badge ' + streamHealthBadgeClass(running ? health : 'stopped');
   var algName = info && info.algorithm_name ? ' · ' + info.algorithm_name : '';
   var fpsStr = '';
-  if(running && info && info.analysis_fps !== undefined){
+  if(info && info.analysis_fps !== undefined){
     fpsStr = ' · ' + (info.analysis_fps||0).toFixed(1) + ' fps';
   }
-  badge.textContent = (running ? _t('zone_analysis_running','分析运行中') : _t('zone_analysis_stopped','分析未启动')) + algName + fpsStr;
-  btn.style.display = '';
-  btn.textContent = running ? _t('zone_stop_analysis','停止分析') : _t('zone_start_analysis','启动分析');
-  btn.className = 'btn ' + (running ? 'btn-analyze-stop' : 'btn-analyze-start');
-}
-
-function isStreamAnalysisRunning(streamId){
-  streamId = parseInt(streamId, 10) || 0;
-  if(!streamId) return false;
-  for(var i=0;i<g_runningStreams.length;i++){
-    var r = g_runningStreams[i];
-    if((typeof r === 'object' && r.stream_id===streamId) || r===streamId) return true;
+  var healthStr = running ? (' · ' + streamHealthLabel(health)) : '';
+  if(g_lastAnalysisData && g_lastAnalysisData.inference_degraded && running){
+    healthStr += ' · ' + _t('zone_inference_degraded','推理异常');
+    if(health === 'ok') badge.className = 'analysis-badge stalled';
   }
-  return false;
+  if(running && (health === 'stalled' || health === 'disconnected') && info.stalled_sec){
+    healthStr += ' (' + Math.round(info.stalled_sec) + 's)';
+  }
+  badge.textContent = (running ? _t('zone_analysis_running','分析运行中') : _t('zone_analysis_stopped','分析未启动'))
+    + healthStr + algName + fpsStr;
+  if(g_lastAnalysisData && g_lastAnalysisData.inference_degraded){
+    if(!g_healthToastShown.infer){
+      g_healthToastShown.infer = true;
+      showToast(_t('zone_inference_degraded_toast','目标检测推理超时，布控无法正常报警，请重启分析或检查小模型'), 'error', 8000);
+    }
+  }
+  if(running) maybeNotifyStreamHealth(sid, health);
 }
 
 var SVG_ANALYZE_START = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polygon points="10 8 16 12 10 16" fill="currentColor" stroke="none"/></svg>';
@@ -624,29 +736,113 @@ var SVG_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strok
 var SVG_DEL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>';
 var SVG_LOADING = '<svg class="act-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" stroke-linecap="round"/></svg>';
 
-function buildAnalysisIconBtn(streamId){
-  var running = isStreamAnalysisRunning(streamId);
-  if(running){
-    return '<button type="button" class="act-btn act-analyze-stop" data-stream="'+streamId+'" onclick="toggleStreamAnalysis('+streamId+')" title="'+escapeHtml(_t('zone_stop_analysis','停止分析'))+'">'+SVG_ANALYZE_STOP+'</button>';
-  }
-  return '<button type="button" class="act-btn act-analyze-start" data-stream="'+streamId+'" onclick="toggleStreamAnalysis('+streamId+')" title="'+escapeHtml(_t('zone_start_analysis','启动分析'))+'">'+SVG_ANALYZE_START+'</button>';
-}
-
-function streamHasEnabledZone(streamId){
+function getActiveZoneIds(streamId){
   streamId = parseInt(streamId, 10) || 0;
-  if(!streamId) return false;
-  var rows = document.querySelectorAll('#zoneBody tr[data-stream-id="'+streamId+'"]');
-  return rows.length > 0;
+  if(!streamId) return [];
+  var info = getStreamStatusInfo(streamId);
+  if(!info || !info.active_zone_ids) return [];
+  return info.active_zone_ids.map(function(x){ return parseInt(x, 10); });
 }
 
-function refreshZoneAnalysisIcons(){
-  var rows = document.querySelectorAll('#zoneBody tr[data-stream-id]');
-  for(var i=0;i<rows.length;i++){
-    var tr = rows[i];
-    var sid = parseInt(tr.getAttribute('data-stream-id'), 10);
-    var slot = tr.querySelector('.zone-analyze-btn');
-    if(slot) slot.innerHTML = buildAnalysisIconBtn(sid);
+function zoneIsActiveInPipeline(z){
+  if(!z || z.id == null) return false;
+  var ids = getActiveZoneIds(z.stream_id);
+  return ids.indexOf(parseInt(z.id, 10)) >= 0;
+}
+
+function zoneIsRunning(z){
+  if(!zoneIsActiveInPipeline(z)) return false;
+  var info = getStreamStatusInfo(z.stream_id);
+  if(!info || info.running === false) return false;
+  return true;
+}
+
+function buildZoneStateTag(z){
+  if(!zoneIsActiveInPipeline(z)){
+    return '<span class="tag tag-off">'+_t('zone_status_stopped','已停止')+'</span>';
   }
+  var info = getStreamStatusInfo(z.stream_id);
+  if(!info || info.running === false){
+    return '<span class="tag tag-warn">'+_t('zone_status_starting','启动中')+'</span>';
+  }
+  var health = getStreamHealth(z.stream_id);
+  var fps = info.analysis_fps != null ? info.analysis_fps : 0;
+  if(health === 'stalled' || health === 'disconnected'){
+    return '<span class="tag tag-err">'+streamHealthLabel(health)+'</span>';
+  }
+  if(health === 'reconnecting' || health === 'connecting'){
+    return '<span class="tag tag-warn">'+streamHealthLabel(health)+'</span>';
+  }
+  if(health === 'ok' && fps > 0.05){
+    return '<span class="tag tag-on">'+_t('zone_status_running','分析中')+'</span>';
+  }
+  return '<span class="tag tag-warn">'+_t('zone_status_starting','启动中')+'</span>';
+}
+
+function buildZoneRunBtn(z){
+  var running = zoneIsRunning(z);
+  var title = running ? _t('zone_stop','停止此布控') : _t('zone_start','启动此布控');
+  var cls = running ? 'act-analyze-stop' : 'act-analyze-start';
+  var icon = running ? SVG_ANALYZE_STOP : SVG_ANALYZE_START;
+  var en = running ? 0 : 1;
+  return '<button type="button" class="act-btn '+cls+'" data-zone="'+z.id+'" data-stream="'+z.stream_id+'" onclick="toggleZone('+z.id+','+en+')" title="'+escapeHtml(title)+'">'+icon+'</button>';
+}
+
+function refreshZoneRowButtons(){
+  g_zoneCache.forEach(function(z){
+    var tr = document.querySelector('#zoneBody tr[data-zone-id="'+z.id+'"]');
+    if(!tr) return;
+    var slot = tr.querySelector('.zone-run-btn');
+    if(slot) slot.innerHTML = buildZoneRunBtn(z);
+    var stateCell = tr.querySelector('.zone-state-cell');
+    if(stateCell) stateCell.innerHTML = buildZoneStateTag(z);
+  });
+}
+
+function toggleZone(zoneId, enabled){
+  zoneId = parseInt(zoneId, 10) || 0;
+  enabled = enabled ? 1 : 0;
+  if(!zoneId || g_zoneTogglePending[zoneId]) return;
+  var z = g_zoneCache.find(function(x){ return x.id === zoneId; });
+  if(!z) return;
+  var btn = document.querySelector('.act-btn[data-zone="'+zoneId+'"]');
+  var origHTML = btn ? btn.innerHTML : '';
+  var origTitle = btn ? btn.getAttribute('title') : '';
+  var origClass = btn ? btn.className : '';
+  if(btn){
+    btn.disabled = true;
+    btn.classList.add('act-loading');
+    btn.classList.remove('act-analyze-start','act-analyze-stop','act-analyze-disabled');
+    btn.innerHTML = SVG_LOADING;
+  }
+  g_zoneTogglePending[zoneId] = true;
+  var actionLabel = enabled ? _t('zone_start','启动此布控') : _t('zone_stop','停止此布控');
+  showToast(actionLabel + '...', 'info', 1500);
+  Api.post('/control/openToggleZone', {id: zoneId, enabled: enabled}).then(function(res){
+    if(!res){
+      showToast(_t('msg_unknown_error','失败'),'error');
+      return;
+    }
+    var ok = res.code === 1000;
+    showToast(res.msg || (ok ? _t('msg_success','成功') : _t('msg_unknown_error','失败')), ok ? 'success' : 'error');
+    if(ok){
+      z.state = (res.data && res.data.state != null) ? res.data.state : enabled;
+      refreshZoneRowButtons();
+      updateZoneOverviewFromList(g_zoneCache);
+      refreshZonePageState();
+    }
+  }).catch(function(){
+    showToast(_t('msg_unknown_error','网络错误'),'error');
+  }).then(function(){
+    if(btn && btn.parentNode){
+      btn.disabled = false;
+      btn.classList.remove('act-loading');
+      btn.className = origClass;
+      btn.innerHTML = origHTML;
+      btn.setAttribute('title', origTitle);
+    }
+    delete g_zoneTogglePending[zoneId];
+  });
 }
 
 function refreshZonePageState(){
@@ -659,7 +855,11 @@ function applyOverviewFromAnalysis(d){
   document.getElementById('ovTotalCam').textContent=d.total_streams||0;
   var rc=d.running_count||0, ts=d.total_streams||0;
   document.getElementById('ovRunning').textContent=rc+' / '+ts;
-  document.getElementById('ovFps').textContent=_t('zone_ov_fps_avg','平均 FPS')+': '+(d.analysis_fps_avg||0);
+  var fpsTxt = _t('zone_ov_fps_avg','平均 FPS')+': '+(d.analysis_fps_avg||0);
+  if(d.inference_degraded){
+    fpsTxt += ' · '+_t('zone_inference_degraded','推理异常');
+  }
+  document.getElementById('ovFps').textContent=fpsTxt;
   document.getElementById('ovInstances').textContent=d.engine_instance_total||0;
   var usage=d.engine_instances||[];
   var reuseTxt='';
@@ -688,8 +888,7 @@ function fetchAnalysisStatus(){
       g_lastAnalysisData = res.data;
       applyOverviewFromAnalysis(res.data);
       refreshAnalysisUI();
-      refreshZoneAnalysisIcons();
-      // 若引擎管理弹框已打开，同步刷新弹框内容
+      refreshZoneRowButtons();
       if(document.getElementById('engineModal').classList.contains('open')){
         renderEngineModal(res.data);
       }
@@ -697,88 +896,209 @@ function fetchAnalysisStatus(){
   });
 }
 
-function toggleStreamAnalysis(streamId){
-  streamId = parseInt(streamId, 10) || 0;
-  if(!streamId){ showToast(_t('zone_select_camera_first','请先选择摄像头'),'warning'); return; }
-  // 防重入：该 stream 已有正在执行的启停请求
-  if(g_togglePending[streamId]){ return; }
-  var running = isStreamAnalysisRunning(streamId);
-  var url = running ? '/analysis/openStop' : '/analysis/openStart';
-  var actionLabel = running ? _t('zone_stop_analysis','停止分析') : _t('zone_start_analysis','启动分析');
-  // 找到触发按钮，置为 loading 态
-  var btn = document.querySelector('.act-btn[data-stream="'+streamId+'"]');
-  var origHTML = btn ? btn.innerHTML : '';
-  var origTitle = btn ? btn.getAttribute('title') : '';
-  var origClass = btn ? btn.className : '';
-  if(btn){
-    btn.disabled = true;
-    btn.classList.add('act-loading');
-    btn.classList.remove('act-analyze-start','act-analyze-stop','act-analyze-disabled');
-    btn.innerHTML = SVG_LOADING;
-    btn.setAttribute('title', actionLabel + '...');
-  }
-  g_togglePending[streamId] = true;
-  // 即时反馈：执行中
-  showToast(actionLabel + '...', 'info', 1500);
-  Api.post(url, {stream_id: streamId}).then(function(res){
-    if(!res){
-      showToast(_t('msg_unknown_error','失败'),'error');
-      return;
-    }
-    var ok = res.code===1000;
-    showToast((res.msg || (ok?_t('msg_success','成功'):_t('msg_unknown_error','失败'))) + ' (' + actionLabel + ')', ok?'success':'error');
-    if(ok){
-      // 乐观更新：先切换运行状态，避免等下次轮询
-      if(running){
-        var idx = g_runningStreams.indexOf(streamId);
-        if(idx>=0) g_runningStreams.splice(idx,1);
-      } else {
-        if(g_runningStreams.indexOf(streamId)<0) g_runningStreams.push(streamId);
-      }
-      refreshZoneAnalysisIcons();
-      // 再拉一次完整状态对齐
-      refreshZonePageState();
-    }
-  }).catch(function(){
-    showToast(_t('msg_unknown_error','网络错误') + ' (' + actionLabel + ')','error');
-  }).then(function(){
-    // 恢复按钮（如果还在 DOM 里）
-    if(btn && btn.parentNode){
-      btn.disabled = false;
-      btn.classList.remove('act-loading');
-      btn.className = origClass;
-      btn.innerHTML = origHTML;
-      btn.setAttribute('title', origTitle);
-    }
-    delete g_togglePending[streamId];
-  });
-}
-
-function toggleAnalysis(){
-  var sid = parseInt(document.getElementById('filterStream').value, 10) || 0;
-  if(!sid){ showToast(_t('zone_select_camera_first','请先选择摄像头'),'warning'); return; }
-  if(!isStreamAnalysisRunning(sid) && !streamHasEnabledZone(sid)){
-    showToast(_t('zone_analysis_need_enabled','当前摄像头无布控，无法启动分析'), 'warning');
-    return;
-  }
-  toggleStreamAnalysis(sid);
-}
-
 function startAnalysisPolling(){
   if(g_analysisPollTimer) clearInterval(g_analysisPollTimer);
-  g_analysisPollTimer = setInterval(fetchAnalysisStatus, 8000);
+  g_analysisPollTimer = setInterval(fetchAnalysisStatus, 5000);
 }
 var g_streams = [];
 var g_points = [];          // 归一化坐标 [[nx,ny],...]
 var g_drawFinished = false; // 多边形是否已完成（停止继续加点）
 var g_imgNatural = {w:0,h:0};
-var g_snapLoading = false;
-var g_runningStreams = [];  // 当前正在跑分析的 stream_id 列表
-var g_togglePending = {};  // 启停分析请求防重入：{streamId: true}
+var g_zonePlayer = null;
+var g_liveSeq = 0;
+var g_liveContext = { app: '', name: '' };
+var g_runningStreams = [];
+var g_zoneTogglePending = {};
 var g_algorithms = [];     // 可选业务算法列表
 var g_analysisPollTimer = null;
 var g_zoneCache = [];
 var g_lastAnalysisData = null;  // 最近一次分析状态数据（供引擎实例弹框使用）
+var g_drawMode = 'rect';        // rect | polygon | line
+var g_linePoints = [];          // [[x,y],[x,y]] 归一化方向线 A→B
+var g_rectPending = null;       // 矩形模式第一个角点
+
+function setDrawMode(mode){
+  mode = mode || 'rect';
+  g_drawMode = mode;
+  document.querySelectorAll('#drawModeBar .zm-tool[data-mode]').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('data-mode') === g_drawMode);
+  });
+  if(g_drawMode === 'rect'){
+    g_rectPending = null;
+    if(g_points.length >= 4) g_drawFinished = true;
+  }
+  updatePointStatus();
+  updateFinishBtn();
+  updateDrawGeometryUI();
+  redraw();
+}
+
+function isRegionDrawingComplete(){
+  if(!needsRegionDrawing()) return true;
+  if(g_points.length >= 4) return true;
+  return g_points.length >= 3 && g_drawFinished;
+}
+
+function isZoneRequired(){
+  return parseInt(document.getElementById('f_required').value, 10) === 1;
+}
+
+function getSelectedAlgos(){
+  var ids = getSelectedAlgoIds();
+  return (g_algorithms || []).filter(function(a){ return ids.indexOf(a.id) >= 0; });
+}
+
+function isLinePost(post){
+  return post === 'LINE_CROSS' || post === 'LINE_COUNT';
+}
+
+function isRegionPost(post){
+  return ['AREA','DWELL','DENSITY','DIRECTION'].indexOf(post) >= 0;
+}
+
+function needsLineGeometry(){
+  return getSelectedAlgos().some(function(a){ return isLinePost(a.post_process); });
+}
+
+function needsRegionGeometry(){
+  if(!isZoneRequired()) return false;
+  var algos = getSelectedAlgos();
+  if(!algos.length) return true;
+  if(algos.some(function(a){ return isRegionPost(a.post_process); })) return true;
+  if(needsLineGeometry()) return true;
+  return false;
+}
+
+function syncRequiredForAlgos(showTip){
+  var algos = getSelectedAlgos();
+  if(!algos.length) return;
+  var hasRegionPost = algos.some(function(a){ return isRegionPost(a.post_process); });
+  var lineOnly = algos.length > 0 && algos.every(function(a){ return isLinePost(a.post_process); });
+  if(hasRegionPost){
+    if(!isZoneRequired()){
+      setToggleValue('reqToggle', 1, 'f_required');
+      onRequiredChange();
+      if(showTip) showToast(_t('zone_auto_required_on','已自动开启「必需区域」'), 'info', 2500);
+    }
+  } else if(lineOnly){
+    if(isZoneRequired()){
+      setToggleValue('reqToggle', 0, 'f_required');
+      onRequiredChange();
+      if(showTip) showToast(_t('zone_auto_required_off_line','越线类算法仅需方向线，已自动关闭「必需区域」'), 'info', 3500);
+    }
+  }
+}
+
+function onRequiredChange(){
+  updateRequiredHint();
+  updateDrawGeometryUI();
+  updatePointStatus();
+}
+
+function updateRequiredHint(){
+  var el = document.getElementById('zoneRequiredHint');
+  if(!el) return;
+  if(isZoneRequired()){
+    el.textContent = _t('zone_required_on_hint','开启：目标须在布控区域内才触发后处理；越线类算法仍需绘制方向线');
+    el.style.color = '#64748b';
+  } else {
+    el.textContent = _t('zone_required_off_hint','关闭：不校验/不依赖布控区域，越线类算法仅需绘制方向线');
+    el.style.color = '#1d4ed8';
+  }
+}
+
+function validateZoneDrawing(){
+  var algoIds = getSelectedAlgoIds();
+  if(!algoIds.length){
+    showToast(_t('zone_algo_required','请至少选择一个业务算法'),'warning');
+    return false;
+  }
+  var algos = getSelectedAlgos();
+  var hasLine = needsLineGeometry();
+  var hasRegionPost = algos.some(function(a){ return isRegionPost(a.post_process); });
+
+  if(hasRegionPost && !isZoneRequired()){
+    showToast(_t('zone_region_post_need_required','区域类后处理需开启「必需区域」并绘制区域'),'warning');
+    return false;
+  }
+  if(hasLine && g_linePoints.length < 2){
+    showToast(_t('zone_line_required','越线类算法需绘制方向线 A→B'),'warning');
+    setDrawMode('line');
+    return false;
+  }
+  if(needsRegionDrawing() && g_points.length < 3){
+    if(hasLine && !hasRegionPost){
+      showToast(_t('zone_line_only_need_region_or_off',
+        '越线类算法：请绘制 ▭/⬠ 区域，或关闭「必需区域」后仅保留方向线'), 'warning', 4500);
+    } else {
+      showToast(_t('zone_draw_min_points','至少绘制 3 个点（矩形或多边形）'),'warning');
+    }
+    setDrawMode(g_points.length === 4 ? 'rect' : (g_drawMode === 'line' ? 'rect' : g_drawMode));
+    return false;
+  }
+  return true;
+}
+
+function parseLinePoint(raw){
+  if(!raw) return null;
+  if(Array.isArray(raw) && raw.length >= 2) return [parseFloat(raw[0]), parseFloat(raw[1])];
+  try{
+    var arr = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if(Array.isArray(arr) && arr.length >= 2) return [parseFloat(arr[0]), parseFloat(arr[1])];
+  }catch(e){}
+  return null;
+}
+
+function loadLinePointsFromZone(z){
+  g_linePoints = [];
+  var a = parseLinePoint(z && z.line_a);
+  var b = parseLinePoint(z && z.line_b);
+  if(a) g_linePoints.push(a);
+  if(b) g_linePoints.push(b);
+  updateLineStatus();
+}
+
+function updateLineStatus(){
+  var el = document.getElementById('lineStatus');
+  if(!el) return;
+  if(g_linePoints.length >= 2){
+    el.textContent = _t('zone_line_ready','方向线 A→B 已就绪');
+    el.style.color = '#065f46';
+  } else if(g_drawMode === 'line'){
+    if(g_linePoints.length === 1){
+      el.textContent = _t('zone_line_need_b','方向线：请点击终点 B');
+      el.style.color = '#d97706';
+    } else {
+      el.textContent = _t('zone_line_need_ab','方向线：点击起点 A，再点击终点 B');
+      el.style.color = '#64748b';
+    }
+  } else if(needsLineGeometry() && g_linePoints.length < 2){
+    el.textContent = _t('zone_line_required_hint','越线算法需绘制 → 方向线');
+    el.style.color = '#d97706';
+  } else if(g_linePoints.length === 1){
+    el.textContent = _t('zone_line_need_b','方向线：请点击终点 B');
+    el.style.color = '#d97706';
+  } else {
+    el.textContent = '';
+  }
+}
+
+function needsRegionDrawing(){
+  return needsRegionGeometry();
+}
+
+function updateDrawGeometryUI(){
+  updateLineStatus();
+  updateRequiredHint();
+  var bar = document.getElementById('drawToolRow');
+  var modalOpen = document.getElementById('zoneModal') && document.getElementById('zoneModal').classList.contains('show');
+  if(bar) bar.style.display = modalOpen ? 'flex' : 'none';
+  var hintText = document.getElementById('drawHintText');
+  if(hintText){
+    hintText.textContent = _t('zone_draw_tip_three',
+      '三种图形可叠加：▭ 矩形 · ⬠ 多边形 · → 方向线 A→B（箭头为正向）· 右键撤销当前工具');
+  }
+}
 
 function loadAlgorithmsForZone(cb){
   Api.get('/algorithm/openIndex').then(function(res){
@@ -795,6 +1115,7 @@ function renderAlgoList(selectedIds){
   if(!g_algorithms.length){
     box.innerHTML = '<div class="zm-algo-empty"><span class="ic">⊞</span>'+_t('zone_no_algorithm','暂无可用业务算法，请先到业务算法添加')+'</div>';
     updateAlgoCount(selectedIds||[]);
+    updateDrawGeometryUI();
     return;
   }
   var sel = selectedIds || [];
@@ -816,12 +1137,19 @@ function renderAlgoList(selectedIds){
   });
   box.innerHTML = html;
   updateAlgoCount(sel);
+  updateDrawGeometryUI();
 }
 
 function algoToggle(el){
   if(!el) return;
   el.classList.toggle('sel');
   updateAlgoCount(getSelectedAlgoIds());
+  var algos = getSelectedAlgos();
+  if(algos.some(function(a){ return isRegionPost(a.post_process); }) && !isZoneRequired()){
+    showToast(_t('zone_region_post_need_required','区域类后处理需开启「必需区域」并绘制区域'), 'warning', 4000);
+  }
+  syncRequiredForAlgos(true);
+  updateDrawGeometryUI();
 }
 
 function algoSelectAll(all){
@@ -831,6 +1159,8 @@ function algoSelectAll(all){
     if(all) c.classList.add('sel'); else c.classList.remove('sel');
   });
   updateAlgoCount(getSelectedAlgoIds());
+  syncRequiredForAlgos(true);
+  updateDrawGeometryUI();
 }
 
 function updateAlgoCount(ids){
@@ -906,12 +1236,18 @@ function loadStreams(cb){
   });
 }
 
+function sortByIdDesc(list){
+  return (list || []).slice().sort(function(a, b){ return (parseInt(b.id, 10) || 0) - (parseInt(a.id, 10) || 0); });
+}
+
 function renderZoneTable(zones){
   var body=document.getElementById('zoneBody'); body.innerHTML='';
+  zones = sortByIdDesc(zones);
   if(!zones || !zones.length){ renderEmpty(true); updateZoneOverviewFromList([]); return; }
   renderEmpty(false);
   zones.forEach(function(z){
     var tr=document.createElement('tr');
+    tr.setAttribute('data-zone-id', z.id);
     tr.setAttribute('data-stream-id', z.stream_id);
     var algos=z.algorithms||[];
     var algoHtml='';
@@ -922,7 +1258,7 @@ function renderZoneTable(zones){
     }
     var nm='<div style="display:flex;align-items:center;gap:6px;"><span style="width:9px;height:9px;border-radius:50%;background:'+escapeHtml(z.color||'#169F85')+';flex-shrink:0;"></span>'+escapeHtml(z.name)+'</div>';
     var actions = '<div class="zone-actions">'
-      +'<span class="zone-analyze-btn">'+buildAnalysisIconBtn(z.stream_id)+'</span>'
+      +'<span class="zone-run-btn">'+buildZoneRunBtn(z)+'</span>'
       +'<button type="button" class="act-btn" onclick="editZone('+z.id+')" title="'+escapeHtml(_t('btn_edit','编辑'))+'">'+SVG_EDIT+'</button>'
       +'<button type="button" class="act-btn act-danger" onclick="delZone('+z.id+')" title="'+escapeHtml(_t('btn_del','删除'))+'">'+SVG_DEL+'</button>'
       +'</div>';
@@ -931,6 +1267,7 @@ function renderZoneTable(zones){
       +'<td><span style="font-size:11px;color:#475569;">'+escapeHtml(formatDetectRate(z.detect_interval_sec||1, z.detect_frames||1))+'</span></td>'
       +'<td>'+(z.is_required===1?'<span class="tag tag-req">'+_t('zone_yes','是')+'</span>':'<span class="tag tag-off">'+_t('zone_no','否')+'</span>')+'</td>'
       +'<td>'+z.loiter_threshold+'</td>'
+      +'<td class="zone-state-cell">'+buildZoneStateTag(z)+'</td>'
       +'<td>'+actions+'</td>';
     body.appendChild(tr);
   });
@@ -983,8 +1320,10 @@ function renderEmpty(show){
 }
 
 function updateZoneOverviewFromList(zones){
-  var total=zones.length;
-  var el=document.getElementById('ovZones'); if(el) el.textContent=total;
+  var total = zones.length;
+  var running = zones.filter(function(z){ return zoneIsRunning(z); }).length;
+  var el = document.getElementById('ovZones');
+  if(el) el.textContent = total + ' / ' + running;
 }
 
 function editZone(id){
@@ -1009,13 +1348,17 @@ function editZone(id){
   renderAlgoList(z.algorithm_ids || []);
   try{ g_points = JSON.parse(z.coordinates||'[]'); }catch(e){ g_points=[]; }
   g_drawFinished = g_points.length >= 3;
+  loadLinePointsFromZone(z);
+  setDrawMode(g_points.length === 4 ? 'rect' : 'polygon');
+  onRequiredChange();
   openDrawWithStream(z.stream_id, true);
   document.getElementById('zoneModal').classList.add('show');
+  updateDrawGeometryUI();
 }
 
 function openZoneModal(){
   document.getElementById('zoneModalTitle').textContent=_t('btn_add_zone','添加布控');
-  document.getElementById('zoneModalSub').textContent=_t('zone_draw_hint','在摄像头画面上点击绘制多边形区域');
+  document.getElementById('zoneModalSub').textContent=_t('zone_draw_tip_three','三种图形可叠加：▭ 矩形 · ⬠ 多边形 · → 方向线 A→B（箭头为正向）· 右键撤销当前工具');
   document.getElementById('f_id').value='';
   fillStreamSelect(document.getElementById('f_stream'),false);
   document.getElementById('f_name').value='';
@@ -1025,16 +1368,24 @@ function openZoneModal(){
   updateDetectPreview();
   document.getElementById('f_color').value='#169F85';
   syncColorSwatches('#169F85');
-  setToggleValue('reqToggle',0,'f_required');
+  setToggleValue('reqToggle', 1, 'f_required');
   renderAlgoList([]);
   g_points=[];
+  g_linePoints=[];
+  g_rectPending=null;
   g_drawFinished=false;
+  setDrawMode('rect');
   resetDraw();
+  onRequiredChange();
   var sel=document.getElementById('f_stream');
   if(sel.options.length>0){ sel.selectedIndex=0; onStreamChange(); }
   document.getElementById('zoneModal').classList.add('show');
+  updateDrawGeometryUI();
 }
-function closeZoneModal(){ document.getElementById('zoneModal').classList.remove('show'); }
+function closeZoneModal(){
+  cancelLivePreview();
+  document.getElementById('zoneModal').classList.remove('show');
+}
 
 function pickColor(el){
   var c=el.getAttribute('data-color');
@@ -1069,14 +1420,144 @@ document.addEventListener('keydown', function(e){
 
 /* ---------- 摄像头画面绘制 ---------- */
 function resetDraw(){
+  cancelLivePreview();
   var wrap=document.getElementById('drawWrap');
   wrap.className='draw-wrap no-snap';
   wrap.innerHTML='<span class="zm-ph-icon">▣</span><span id="drawPlaceholder">'+_t('zone_select_camera_first','正在加载摄像头画面…')+'</span>';
   g_points=[];
+  g_linePoints=[];
+  g_rectPending=null;
   g_drawFinished=false;
   g_imgNatural={w:0,h:0};
   updatePointStatus();
   updateFinishBtn();
+  updateLineStatus();
+}
+
+function destroyZonePlayer(){
+  if(g_zonePlayer){
+    try { g_zonePlayer.destroy(); } catch(e){}
+    g_zonePlayer = null;
+  }
+}
+
+function cancelLivePreview(){
+  g_liveSeq++;
+  destroyZonePlayer();
+}
+
+function ensureDrawCanvas(parent){
+  var canvas=document.getElementById('drawCanvas');
+  if(!canvas){
+    canvas=document.createElement('canvas');
+    canvas.id='drawCanvas';
+    parent.appendChild(canvas);
+    canvas.addEventListener('click', onCanvasClick);
+    canvas.addEventListener('dblclick', onCanvasDblClick);
+    canvas.addEventListener('mousemove', onCanvasMove);
+    canvas.addEventListener('contextmenu', function(e){ e.preventDefault(); undoPoint(); });
+  }
+  return canvas;
+}
+
+function showLivePreviewError(msg){
+  var wrap=document.getElementById('drawWrap');
+  if(!wrap) return;
+  cancelLivePreview();
+  wrap.className='draw-wrap no-snap';
+  wrap.innerHTML='<span class="zm-ph-icon">⚠</span><span>'+escapeHtml(msg)+'</span>'
+    +'<button type="button" class="btn" style="margin-top:10px;" onclick="retryLivePreview()">'+_t('zone_refresh_live','重新连接视频')+'</button>';
+}
+
+function loadLivePreview(app, name){
+  if(!app||!name){ resetDraw(); return; }
+  var seq = ++g_liveSeq;
+  g_liveContext = { app: app, name: name };
+  destroyZonePlayer();
+  var wrap=document.getElementById('drawWrap');
+  wrap.className='draw-wrap';
+  wrap.innerHTML=
+    '<div id="zoneVideoWrap" class="zone-video-wrap">'
+    + '<div id="zoneVideoPlayer"></div>'
+    + '<div id="zonePlayerOverlay" class="zm-player-overlay"><span class="zm-ph-icon">⟳</span><span>'+_t('zone_live_connecting','正在连接视频流...')+'</span></div>'
+    + '</div>';
+
+  Api.get('/stream/openPlayer', { app: app, name: name }).then(function(res){
+    if(seq !== g_liveSeq) return;
+    if(!res || res.code !== 1000 || !res.info || !res.info.stream){
+      showLivePreviewError(_t('zone_live_failed','无法连接视频流'));
+      return;
+    }
+    var s = res.info.stream;
+    if(parseInt(s.is_online, 10) !== 1){
+      showLivePreviewError(_t('zone_live_offline','视频流离线，请确认摄像头在线'));
+      return;
+    }
+    var playUrl = s.wsMp4Url || s.httpMp4Url || s.wsFlvUrl || s.httpFlvUrl;
+    if(!playUrl){
+      showLivePreviewError(_t('zone_live_no_url','无可用播放地址'));
+      return;
+    }
+    var videoWrap = document.getElementById('zoneVideoWrap');
+    if(!videoWrap){ return; }
+    ensureDrawCanvas(videoWrap);
+    var overlay = document.getElementById('zonePlayerOverlay');
+    try{
+      g_zonePlayer = new EasyPlayerPro({
+        container: document.getElementById('zoneVideoPlayer'),
+        videoBuffer: 0.1,
+        decoder: '/static/lib/easyPlayer/js/decoder-pro.js',
+        isResize: true,
+        loadingText: _t('zone_live_connecting','正在连接视频流...'),
+        debug: false,
+        useMSE: true,
+        useWCS: true,
+        hasAudio: false,
+        isNotMute: true,
+        showBandwidth: false,
+        operateBtns: { fullscreen: false, screenshot: false, play: false, audio: false, ptz: false },
+        timeout: 10,
+        forceNoOffscreen: true,
+        heartTimeout: 10
+      });
+      g_zonePlayer.play(playUrl);
+      if(overlay) overlay.style.display = 'none';
+      setTimeout(function(){
+        if(seq !== g_liveSeq) return;
+        resizeCanvas();
+        redraw();
+        updatePointStatus();
+        updateFinishBtn();
+      }, 400);
+    }catch(e){
+      showLivePreviewError(_t('zone_live_failed','无法连接视频流'));
+    }
+  }).catch(function(){
+    if(seq !== g_liveSeq) return;
+    showLivePreviewError(_t('zone_live_failed','无法连接视频流'));
+  });
+}
+
+function retryLivePreview(){
+  var ctx = g_liveContext || {};
+  if(ctx.app && ctx.name) loadLivePreview(ctx.app, ctx.name);
+  else onStreamChange();
+}
+
+function refreshLivePreview(){
+  var sel=document.getElementById('f_stream');
+  var opt=sel.options[sel.selectedIndex];
+  if(!opt||!opt.value){ showToast(_t('zone_select_camera_first','请先选择摄像头'),'warning'); return; }
+  var keep=g_points.slice();
+  var keepLine=g_linePoints.slice();
+  var app=opt.getAttribute('data-app')||'';
+  var name=opt.getAttribute('data-name')||'';
+  if(app&&name) loadLivePreview(app,name);
+  else { var s=findStream(opt.value); if(s) loadLivePreview(s.app,s.name); }
+  g_points=keep;
+  g_linePoints=keepLine;
+  g_drawFinished = g_points.length >= 4 || g_points.length >= 3;
+  setTimeout(function(){ resizeCanvas(); redraw(); }, 500);
 }
 
 function onStreamChange(){
@@ -1084,12 +1565,14 @@ function onStreamChange(){
   var opt=sel.options[sel.selectedIndex];
   if(!opt||!opt.value){ resetDraw(); return; }
   g_points=[];
+  g_linePoints=[];
+  g_rectPending=null;
   g_drawFinished=false;
   var app=opt.getAttribute('data-app')||'';
   var name=opt.getAttribute('data-name')||'';
-  if(app&&name){ loadSnap(app,name); return; }
+  if(app&&name){ loadLivePreview(app,name); return; }
   var s=findStream(opt.value);
-  if(s) loadSnap(s.app,s.name); else resetDraw();
+  if(s) loadLivePreview(s.app,s.name); else resetDraw();
 }
 
 function findStream(id){
@@ -1100,64 +1583,17 @@ function openDrawWithStream(sid, keepPoints){
   var s=findStream(sid);
   if(!s){ resetDraw(); return; }
   if(!keepPoints) g_points=[];
-  loadSnap(s.app, s.name);
-}
-
-function loadSnap(app, name){
-  if(!app||!name){ resetDraw(); return; }
-  var wrap=document.getElementById('drawWrap');
-  wrap.className='draw-wrap no-snap';
-  wrap.innerHTML='<span class="zm-ph-icon">⟳</span><span>'+_t('zone_loading_snap','正在获取摄像头画面...')+'</span>';
-  g_snapLoading=true;
-  var img=new Image();
-  img.crossOrigin='anonymous';
-  var url='/nvr/openSnap?app='+encodeURIComponent(app)+'&name='+encodeURIComponent(name)+'&force=1&_t='+Date.now();
-  img.onload=function(){
-    g_snapLoading=false;
-    g_imgNatural={w:img.naturalWidth, h:img.naturalHeight};
-    wrap.className='draw-wrap';
-    wrap.innerHTML='';
-    img.id='snapImg';
-    wrap.appendChild(img);
-    var canvas=document.createElement('canvas');
-    canvas.id='drawCanvas';
-    wrap.appendChild(canvas);
-    canvas.addEventListener('click', onCanvasClick);
-    canvas.addEventListener('dblclick', onCanvasDblClick);
-    canvas.addEventListener('mousemove', onCanvasMove);
-    canvas.addEventListener('contextmenu', function(e){ e.preventDefault(); undoPoint(); });
-    resizeCanvas();
-    redraw();
-    updatePointStatus();
-    updateFinishBtn();
-  };
-  img.onerror=function(){
-    g_snapLoading=false;
-    wrap.className='draw-wrap no-snap';
-    wrap.innerHTML='<span class="zm-ph-icon">⚠</span><span>'+_t('zone_snap_failed','无法获取摄像头画面，请确认摄像头在线后点击刷新')+'</span>';
-  };
-  img.src=url;
-}
-
-function refreshSnap(){
-  var sel=document.getElementById('f_stream');
-  var opt=sel.options[sel.selectedIndex];
-  if(!opt||!opt.value){ showToast(_t('zone_select_camera_first','请先选择摄像头'),'warning'); return; }
-  var keep=g_points.slice();
-  var app=opt.getAttribute('data-app')||'';
-  var name=opt.getAttribute('data-name')||'';
-  if(app&&name) loadSnap(app,name);
-  else { var s=findStream(opt.value); if(s) loadSnap(s.app,s.name); }
-  g_points=keep;
+  loadLivePreview(s.app, s.name);
 }
 
 function resizeCanvas(){
   var canvas=document.getElementById('drawCanvas');
-  var img=document.getElementById('snapImg');
-  if(!canvas||!img) return;
-  var rect=img.getBoundingClientRect();
-  canvas.width=rect.width;
-  canvas.height=rect.height;
+  var wrap=document.getElementById('zoneVideoWrap');
+  if(!canvas||!wrap) return;
+  var rect=wrap.getBoundingClientRect();
+  if(rect.width < 1 || rect.height < 1) return;
+  canvas.width=Math.round(rect.width);
+  canvas.height=Math.round(rect.height);
 }
 
 window.addEventListener('resize', function(){ if(document.getElementById('drawCanvas')){ resizeCanvas(); redraw(); } });
@@ -1165,18 +1601,57 @@ window.addEventListener('resize', function(){ if(document.getElementById('drawCa
 function onCanvasClick(e){
   var canvas=document.getElementById('drawCanvas');
   if(!canvas) return;
-  if(g_drawFinished) return;
   var rect=canvas.getBoundingClientRect();
   var px=(e.clientX-rect.left)/rect.width;
   var py=(e.clientY-rect.top)/rect.height;
-  // 点击首点附近且已有 >=3 点 → 闭合完成
+  px = Math.max(0, Math.min(1, px));
+  py = Math.max(0, Math.min(1, py));
+
+  if(g_drawMode === 'line'){
+    if(g_linePoints.length >= 2) g_linePoints = [];
+    g_linePoints.push([px, py]);
+    redraw();
+    updateLineStatus();
+    updatePointStatus();
+    updateFinishBtn();
+    return;
+  }
+
+  if(g_drawFinished && g_drawMode !== 'rect') return;
+
+  if(g_drawMode === 'rect'){
+    if(!g_rectPending){
+      g_rectPending = [px, py];
+      redraw(e);
+      updatePointStatus();
+      return;
+    }
+    var x1 = g_rectPending[0], y1 = g_rectPending[1];
+    var x2 = px, y2 = py;
+    g_points = [
+      [Math.min(x1,x2), Math.min(y1,y2)],
+      [Math.max(x1,x2), Math.min(y1,y2)],
+      [Math.max(x1,x2), Math.max(y1,y2)],
+      [Math.min(x1,x2), Math.max(y1,y2)]
+    ];
+    g_rectPending = null;
+    g_drawFinished = true;
+    redraw();
+    updatePointStatus();
+    updateFinishBtn();
+    updateLineStatus();
+    return;
+  }
+
+  // polygon
   if(g_points.length>=3){
     var fx=g_points[0][0]*canvas.width, fy=g_points[0][1]*canvas.height;
     var cx=e.clientX-rect.left, cy=e.clientY-rect.top;
     if(Math.hypot(cx-fx, cy-fy)<=14){ finishDraw(); return; }
   }
   g_points.push([px,py]);
-  redraw();
+  if(g_points.length >= 3) g_drawFinished = false;
+  redraw(e);
   updatePointStatus();
 }
 
@@ -1192,18 +1667,48 @@ function onCanvasMove(e){
 }
 
 function undoPoint(){
-  if(g_drawFinished) g_drawFinished=false;
-  g_points.pop();
+  if(g_drawMode === 'line'){
+    g_linePoints.pop();
+    redraw();
+    updateLineStatus();
+    updatePointStatus();
+    updateFinishBtn();
+    return;
+  }
+  if(g_drawFinished && g_drawMode !== 'rect') g_drawFinished=false;
+  if(g_drawMode === 'rect' && g_rectPending){
+    g_rectPending = null;
+  } else {
+    g_points.pop();
+  }
   redraw();
   updatePointStatus();
   updateFinishBtn();
 }
 function clearPoints(){
   g_points=[];
+  g_linePoints=[];
+  g_rectPending=null;
   g_drawFinished=false;
   redraw();
   updatePointStatus();
   updateFinishBtn();
+  updateLineStatus();
+}
+
+function clearCurrentDraw(){
+  if(g_drawMode === 'line'){
+    g_linePoints = [];
+    g_drawFinished = false;
+  } else {
+    g_points = [];
+    g_rectPending = null;
+    g_drawFinished = false;
+  }
+  redraw();
+  updatePointStatus();
+  updateFinishBtn();
+  updateLineStatus();
 }
 
 function finishDraw(){
@@ -1215,23 +1720,45 @@ function finishDraw(){
   redraw();
   updatePointStatus();
   updateFinishBtn();
+  updateLineStatus();
+  if(needsLineGeometry() && g_linePoints.length < 2){
+    showToast(_t('zone_line_step2','区域已完成，请选 → 绘制方向线 A→B'), 'info', 3500);
+  }
 }
 
 function updateFinishBtn(){
   var btn=document.getElementById('btnFinishDraw');
   if(!btn) return;
-  btn.classList.toggle('active', g_drawFinished);
+  var show = g_drawMode !== 'line';
+  btn.style.display = show ? '' : 'none';
+  if(show) btn.classList.toggle('active', g_drawFinished);
+}
+
+function regionDrawSummary(){
+  if(g_points.length >= 4 && g_drawMode === 'rect') return '4 ' + _t('zone_points_unit','个点') + ' · ' + _t('zone_draw_rect','矩形');
+  if(g_points.length >= 3) return g_points.length + ' ' + _t('zone_points_unit','个点') + ' · ' + _t('zone_draw_polygon','多边形');
+  if(g_rectPending) return '1 ' + _t('zone_points_unit','个点') + ' · ' + _t('zone_rect_hint','对角两点绘制矩形');
+  return g_points.length + ' ' + _t('zone_points_unit','个点');
 }
 
 function updatePointStatus(){
   var el=document.getElementById('pointStatus');
-  var n=g_points.length;
-  var txt=n+' '+_t('zone_points_unit','个点');
-  if(g_drawFinished) txt+=' · '+_t('zone_draw_done','已完成');
-  else if(n<3) txt+=' · '+_t('zone_points_remaining','还需 {n} 个点').replace('{n}', String(3-n));
-  else txt+=' · '+_t('zone_finish_hint','点击首点或 ✓ 完成');
-  el.textContent=txt;
-  el.classList.toggle('ready', g_drawFinished || n>=3);
+  if(!el) return;
+  var parts = [];
+  var needRegion = needsRegionDrawing();
+  if(needRegion || g_points.length > 0 || g_rectPending){
+    parts.push(_t('zone_draw_mode_region','区域') + ': ' + regionDrawSummary());
+  }
+  if(g_drawMode === 'line' || g_linePoints.length > 0 || needsLineGeometry()){
+    parts.push(_t('zone_draw_mode_line','方向线') + ': ' + g_linePoints.length + '/2');
+  }
+  if(g_linePoints.length >= 2) parts.push(_t('zone_line_ready_short','方向线 OK'));
+  else if(g_linePoints.length === 1) parts.push(_t('zone_line_a_only','方向线 A'));
+  el.textContent = parts.join(' · ');
+  var regionOk = isRegionDrawingComplete();
+  var lineOk = !needsLineGeometry() || g_linePoints.length >= 2;
+  el.classList.toggle('ready', regionOk && lineOk);
+  updateLineStatus();
 }
 
 function redraw(mouseEv){
@@ -1239,45 +1766,78 @@ function redraw(mouseEv){
   if(!canvas) return;
   var ctx=canvas.getContext('2d');
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  if(g_points.length<1) return;
   var color=document.getElementById('f_color').value||'#169F85';
-  ctx.strokeStyle=color; ctx.fillStyle=hexToRgba(color,0.25); ctx.lineWidth=2;
-  ctx.beginPath();
-  g_points.forEach(function(p,i){
-    var x=p[0]*canvas.width, y=p[1]*canvas.height;
-    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-  });
-  // 闭合预览
-  if(g_points.length>=3){
-    ctx.closePath(); ctx.fill(); ctx.stroke();
-  } else if(g_points.length>=2){
-    ctx.stroke();
-  }
-  // 鼠标跟随线
-  if(mouseEv && g_points.length>=1){
-    var rect=canvas.getBoundingClientRect();
-    var mx=mouseEv.clientX-rect.left, my=mouseEv.clientY-rect.top;
-    ctx.setLineDash([5,4]); ctx.strokeStyle=hexToRgba(color,0.6);
+
+  // 区域多边形/矩形
+  if(g_points.length>=1){
+    ctx.strokeStyle=color; ctx.fillStyle=hexToRgba(color,0.25); ctx.lineWidth=2;
     ctx.beginPath();
-    ctx.moveTo(g_points[g_points.length-1][0]*canvas.width, g_points[g_points.length-1][1]*canvas.height);
-    ctx.lineTo(mx,my);
-    if(g_points.length>=2) ctx.lineTo(g_points[0][0]*canvas.width, g_points[0][1]*canvas.height);
-    ctx.stroke(); ctx.setLineDash([]);
-  }
-  // 顶点圆点 + 编号
-  g_points.forEach(function(p,i){
-    var x=p[0]*canvas.width, y=p[1]*canvas.height;
-    if(i===0 && g_points.length>=3 && !g_drawFinished){
-      ctx.beginPath(); ctx.arc(x,y,12,0,Math.PI*2);
-      ctx.strokeStyle=hexToRgba(color,0.45); ctx.lineWidth=2; ctx.stroke();
+    g_points.forEach(function(p,i){
+      var x=p[0]*canvas.width, y=p[1]*canvas.height;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    if(g_points.length>=3){
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    } else if(g_points.length>=2){
+      ctx.stroke();
     }
-    ctx.beginPath(); ctx.arc(x,y,7,0,Math.PI*2);
-    ctx.fillStyle='#fff'; ctx.fill();
-    ctx.beginPath(); ctx.arc(x,y,5,0,Math.PI*2);
-    ctx.fillStyle=color; ctx.fill();
-    ctx.fillStyle='#fff'; ctx.font='bold 10px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText(String(i+1),x,y);
-  });
+    g_points.forEach(function(p,i){
+      var x=p[0]*canvas.width, y=p[1]*canvas.height;
+      if(i===0 && g_drawMode==='polygon' && g_points.length>=3 && !g_drawFinished){
+        ctx.beginPath(); ctx.arc(x,y,12,0,Math.PI*2);
+        ctx.strokeStyle=hexToRgba(color,0.45); ctx.lineWidth=2; ctx.stroke();
+      }
+      ctx.beginPath(); ctx.arc(x,y,5,0,Math.PI*2);
+      ctx.fillStyle='#fff'; ctx.fill();
+      ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2);
+      ctx.fillStyle=color; ctx.fill();
+    });
+  }
+
+  // 矩形模式 pending 点
+  if(g_drawMode==='rect' && g_rectPending){
+    var rx=g_rectPending[0]*canvas.width, ry=g_rectPending[1]*canvas.height;
+    ctx.beginPath(); ctx.arc(rx,ry,6,0,Math.PI*2);
+    ctx.fillStyle='#2563eb'; ctx.fill();
+    if(mouseEv){
+      var rect=canvas.getBoundingClientRect();
+      var mx=mouseEv.clientX-rect.left, my=mouseEv.clientY-rect.top;
+      ctx.setLineDash([6,4]); ctx.strokeStyle='rgba(37,99,235,0.8)'; ctx.lineWidth=2;
+      ctx.strokeRect(Math.min(rx,mx), Math.min(ry,my), Math.abs(mx-rx), Math.abs(my-ry));
+      ctx.setLineDash([]);
+    }
+  }
+
+  // 方向线 A→B
+  if(g_linePoints.length>=1){
+    var la=g_linePoints[0], lb=g_linePoints.length>=2?g_linePoints[1]:null;
+    var ax=la[0]*canvas.width, ay=la[1]*canvas.height;
+    ctx.strokeStyle='#dc2626'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(ax,ay,7,0,Math.PI*2); ctx.fillStyle='#dc2626'; ctx.fill();
+    ctx.fillStyle='#fff'; ctx.font='bold 11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('A', ax, ay);
+    if(lb){
+      var bx=lb[0]*canvas.width, by=lb[1]*canvas.height;
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+      ctx.beginPath(); ctx.arc(bx,by,7,0,Math.PI*2); ctx.fillStyle='#dc2626'; ctx.fill();
+      ctx.fillStyle='#fff'; ctx.fillText('B', bx, by);
+      // 箭头
+      var ang=Math.atan2(by-ay, bx-ax);
+      var al=14;
+      ctx.beginPath();
+      ctx.moveTo(bx, by);
+      ctx.lineTo(bx - al*Math.cos(ang-0.4), by - al*Math.sin(ang-0.4));
+      ctx.moveTo(bx, by);
+      ctx.lineTo(bx - al*Math.cos(ang+0.4), by - al*Math.sin(ang+0.4));
+      ctx.stroke();
+      ctx.fillStyle='#dc2626'; ctx.font='11px sans-serif';
+      ctx.fillText(_t('zone_forward_dir','正向'), (ax+bx)/2, (ay+by)/2 - 10);
+    } else if(mouseEv){
+      var rect2=canvas.getBoundingClientRect();
+      var mx2=mouseEv.clientX-rect2.left, my2=mouseEv.clientY-rect2.top;
+      ctx.setLineDash([5,4]); ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(mx2,my2); ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
 }
 
 function hexToRgba(hex,a){
@@ -1303,17 +1863,28 @@ function findStreamByAppName(app, name){
 function submitZone(){
   var id=document.getElementById('f_id').value;
   var sid=getSelectedStreamId();
-  var name=document.getElementById('f_name').value.trim();
-  if(!sid){ showToast(_t('zone_form_incomplete','请补全摄像头与名称'),'warning'); return; }
-  if(!name){ showToast(_t('zone_form_incomplete','请补全摄像头与名称'),'warning'); return; }
-  if(g_points.length<3){ showToast(_t('zone_draw_min_points','至少绘制 3 个点'),'warning'); return; }
-  var algoIds = getSelectedAlgoIds();
-  if(!algoIds.length){ showToast(_t('zone_algo_required','请至少选择一个业务算法'),'warning'); return; }
-  if(!g_drawFinished){ finishDraw(); }
+  var nameEl=document.getElementById('f_name');
+  var name=nameEl ? nameEl.value.trim() : '';
+  if(!sid){
+    showToast(_t('zone_stream_required','请选择摄像头'),'warning');
+    return;
+  }
+  if(!name){
+    showToast(_t('zone_name_required','请填写布控名称'),'warning');
+    if(nameEl) nameEl.focus();
+    return;
+  }
+  if(!validateZoneDrawing()) return;
+  if(needsRegionGeometry() && g_points.length >= 3 && !g_drawFinished){
+    g_drawFinished = true;
+  }
+  var coords = needsRegionGeometry() ? g_points : (g_points.length >= 3 ? g_points : []);
   var payload={
     stream_id:sid,
     name:name,
-    coordinates:JSON.stringify(g_points),
+    coordinates:JSON.stringify(coords),
+    line_a: g_linePoints.length >= 1 ? JSON.stringify(g_linePoints[0]) : '',
+    line_b: g_linePoints.length >= 2 ? JSON.stringify(g_linePoints[1]) : '',
     loiter_threshold:parseInt(document.getElementById('f_loiter').value,10)||0,
     detect_interval_sec:getDetectRatePayload().detect_interval_sec,
     detect_frames:getDetectRatePayload().detect_frames,

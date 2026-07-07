@@ -73,7 +73,7 @@ def _get_drainer(resp_queue):
 class RemoteDetector(object):
     ENGINE_NAME = "remote_pool"
 
-    def __init__(self, algorithm_spec, req_queue, resp_queue, timeout=10.0):
+    def __init__(self, algorithm_spec, req_queue, resp_queue, timeout=30.0):
         self._spec = algorithm_spec
         self._req_q = req_queue
         self._resp_q = resp_queue
@@ -92,7 +92,8 @@ class RemoteDetector(object):
         self._drainer.ensure_started()
         try:
             import cv2
-            ok, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+            frame = self._maybe_downscale(frame)
+            ok, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
             if not ok:
                 return []
             jpeg = buf.tobytes()
@@ -113,8 +114,27 @@ class RemoteDetector(object):
 
         if not evt["event"].wait(timeout=self._timeout):
             self._drainer.unregister(req_id)
+            logger.warning("RemoteDetector 推理超时 algo=%s", self._spec.get("name"))
             return []
         resp = evt.get("resp") or {}
         if not resp.get("ok"):
             return []
         return resp.get("detections") or []
+
+    def _maybe_downscale(self, frame):
+        try:
+            import cv2
+            h, w = frame.shape[:2]
+            max_side = max(
+                int(self._spec.get("input_width", 640) or 640),
+                int(self._spec.get("input_height", 640) or 640),
+                640,
+            ) * 2
+            longest = max(h, w)
+            if longest <= max_side:
+                return frame
+            scale = float(max_side) / float(longest)
+            nw, nh = max(1, int(w * scale)), max(1, int(h * scale))
+            return cv2.resize(frame, (nw, nh), interpolation=cv2.INTER_AREA)
+        except Exception:
+            return frame

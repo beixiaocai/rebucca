@@ -132,6 +132,11 @@ github地址：https://github.com/beixiaocai/rebucca
     <div class="panel">
       <div class="panel-head"><h3>{{ T.sm_test_workspace|default:'小模型测试工作台' }}</h3></div>
       <div class="work-zone">
+        <div id="reidDetectorPanel" style="display:none;margin-bottom:12px;padding:10px 12px;background:#f0f9ff;border:1px solid #bfdbfe;border-radius:8px;">
+          <label style="display:block;font-size:12px;font-weight:600;color:#1e40af;margin-bottom:6px;">{{ T.sm_reid_detector|default:'辅助检测小模型 (YOLO)' }} *</label>
+          <select id="detectorAlgoId" style="width:100%;padding:8px 10px;font-size:13px;border:1px solid #bfdbfe;border-radius:6px;" onchange="onDetectorChange()"></select>
+          <div style="font-size:11px;color:#64748b;margin-top:6px;">{{ T.sm_reid_detector_hint|default:'ReID 需先用检测模型定位行人，再提取特征并关联 track_id' }}</div>
+        </div>
         <div class="upload-bar" id="dropArea">
           <input type="file" id="fileInput" accept="image/*,video/*,.mp4,.avi,.mov,.mkv,.webm">
           <span class="btn-upload">{{ T.sm_test_pick_file|default:'选择测试文件' }}</span>
@@ -202,6 +207,22 @@ var g_file = null;
 var g_pollTimer = null;
 var g_taskId = '';
 var g_previewUrl = '';
+var g_detectorId = 0;
+var g_detectors = [];
+
+function isReidAlgo(){
+  return g_algo && (g_algo.task_type || '').toLowerCase() === 'reid';
+}
+
+function updateRunButtonState(){
+  var needDetector = isReidAlgo();
+  var detectorOk = !needDetector || g_detectorId > 0;
+  document.getElementById('btnRun').disabled = !g_file || !g_algo || !g_algo.model_file || !detectorOk;
+}
+
+function typeLabel(t){
+  return ({yolo5:'YOLOv5',yolo8:'YOLOv8',yolo11:'YOLOv11',yolo26:'YOLO26',osnet:'OSNet ReID'})[t] || t || '-';
+}
 
 function qsId(){
   var m = /[?&]id=(\d+)/.exec(window.location.search);
@@ -213,10 +234,6 @@ function engineLabel(name){
   if(name==='onnxruntime') return 'OnnxRuntime';
   if(name==='openvino') return 'OpenVINO';
   return name || '-';
-}
-
-function typeLabel(t){
-  return ({yolo5:'YOLOv5',yolo8:'YOLOv8',yolo11:'YOLOv11',yolo26:'YOLO26'})[t] || t || '-';
 }
 
 function renderParams(a){
@@ -236,10 +253,12 @@ function renderParams(a){
     [_t('sm_engine','推理引擎'), engineLabel(a.inference_engine)],
     [_t('sm_device','推理设备'), (a.device||'cpu').toUpperCase()],
     [_t('sm_resolution','分辨率'), (a.input_width||640)+'×'+(a.input_height||640)],
-    [_t('sm_conf_threshold','置信度'), String(a.conf_threshold)],
-    [_t('sm_model_file','模型'), escapeHtml(a.model_file||'-')],
-    [_t('sm_labels','类别'), labelsHtml, true],
   ];
+  if((a.task_type||'detect').toLowerCase() !== 'reid'){
+    rows.push([_t('sm_conf_threshold','置信度'), String(a.conf_threshold)]);
+    rows.push([_t('sm_labels','类别'), labelsHtml, true]);
+  }
+  rows.push([_t('sm_model_file','模型'), escapeHtml(a.model_file||'-')]);
   var html = '';
   rows.forEach(function(r){
     if(r[2]) html += '<div class="param-item"><span class="k">'+r[0]+'</span>'+r[1]+'</div>';
@@ -247,6 +266,54 @@ function renderParams(a){
   });
   document.getElementById('paramList').innerHTML = html;
   document.getElementById('algoBadge').textContent = '#'+a.id+' '+a.name;
+}
+
+function renderDetectorSelect(){
+  var panel = document.getElementById('reidDetectorPanel');
+  var sel = document.getElementById('detectorAlgoId');
+  if(!panel || !sel) return;
+  if(!isReidAlgo()){
+    panel.style.display = 'none';
+    g_detectorId = 0;
+    updateRunButtonState();
+    return;
+  }
+  panel.style.display = 'block';
+  sel.innerHTML = '';
+  if(!g_detectors.length){
+    var o = document.createElement('option');
+    o.value = '';
+    o.textContent = _t('sm_reid_no_detector','暂无可用检测小模型，请先在列表中添加 YOLO Detect 模型');
+    sel.appendChild(o);
+    g_detectorId = 0;
+  } else {
+    var picked = null;
+    g_detectors.forEach(function(d){
+      var o = document.createElement('option');
+      o.value = d.id;
+      var eng = engineLabel(d.inference_engine);
+      o.textContent = '#'+d.id+' '+d.name+' ('+eng+')';
+      sel.appendChild(o);
+      if(d.is_default === 1) picked = d.id;
+    });
+    g_detectorId = picked || g_detectors[0].id;
+    sel.value = String(g_detectorId);
+  }
+  updateRunButtonState();
+}
+
+function onDetectorChange(){
+  var sel = document.getElementById('detectorAlgoId');
+  g_detectorId = sel && sel.value ? parseInt(sel.value, 10) : 0;
+  updateRunButtonState();
+}
+
+function loadDetectors(cb){
+  Api.get('/smallmodel/openDetectors').then(function(res){
+    g_detectors = (res && res.code===1000 && res.data) ? res.data : [];
+    renderDetectorSelect();
+    if(cb) cb();
+  });
 }
 
 function loadAlgorithm(){
@@ -263,10 +330,15 @@ function loadAlgorithm(){
     }
     g_algo = res.data;
     renderParams(g_algo);
+    if(isReidAlgo()){
+      loadDetectors();
+    } else {
+      renderDetectorSelect();
+    }
     if(!g_algo.model_file){
       showToast(_t('sm_no_model_file','请先配置模型文件'), 'warning');
-      document.getElementById('btnRun').disabled = true;
     }
+    updateRunButtonState();
   });
 }
 
@@ -291,7 +363,7 @@ function setFile(f){
   g_file = f;
   document.getElementById('pickedName').textContent = f.name;
   document.getElementById('pickedHint').textContent = formatBytes(f.size);
-  document.getElementById('btnRun').disabled = !g_algo || !g_algo.model_file;
+  updateRunButtonState();
 
   var img = document.getElementById('previewImg');
   var vid = document.getElementById('previewVideo');
@@ -407,7 +479,8 @@ function formatBytes(n){
 
 function setRunning(running){
   document.getElementById('testWrap').classList.toggle('state-running', running);
-  document.getElementById('btnRun').disabled = running || !g_file || !g_algo || !g_algo.model_file;
+  updateRunButtonState();
+  if(running) document.getElementById('btnRun').disabled = true;
   document.getElementById('btnReset').disabled = running;
   document.getElementById('progressWrap').classList.toggle('show', running);
 }
@@ -428,6 +501,9 @@ function startTest(){
   var fd = new FormData();
   fd.append('algorithm_id', g_algoId);
   fd.append('file', g_file);
+  if(isReidAlgo() && g_detectorId){
+    fd.append('detector_algorithm_id', g_detectorId);
+  }
   Api.postForm('/smallmodel/openTestStart', fd).then(function(res){
     if(!res || res.code!==1000 || !res.data || !res.data.task_id){
       setRunning(false);
@@ -455,7 +531,12 @@ function pollStatus(){
     } else if(d.status==='error'){
       clearInterval(g_pollTimer); g_pollTimer = null;
       setRunning(false);
-      showToast(d.error || d.message || _t('msg_unknown_error','失败'), 'error');
+      var errMsg = d.error || d.message || _t('msg_unknown_error','失败');
+      showToast(errMsg, 'error');
+      clearOutputPane(true);
+      document.getElementById('outputEmpty').textContent = errMsg;
+      document.getElementById('outputEmpty').style.color = '#f87171';
+      document.getElementById('resultSection').classList.remove('show');
     }
   });
 }
@@ -470,6 +551,12 @@ function showResult(d){
     html += row('FPS', rep.fps||'-');
   }
   html += row(_t('sm_test_det_count','检测总数'), rep.detection_count||0);
+  if(rep.task_type === 'reid'){
+    html += row(_t('sm_test_embedding_count','特征提取数'), rep.embedding_count||0);
+    html += row(_t('sm_test_track_count','轨迹峰值'), rep.track_count||0);
+    if(rep.reid_sim_mean != null) html += row(_t('sm_test_reid_sim','特征时序相似度均值'), rep.reid_sim_mean);
+    if(rep.detector_name) html += row(_t('sm_reid_detector','辅助检测小模型'), escapeHtml(rep.detector_name));
+  }
   html += row(_t('sm_test_infer_avg','平均推理'), (rep.inference_ms_avg||0)+' ms');
   html += row(_t('sm_test_elapsed','总耗时'), (rep.elapsed_ms||0)+' ms');
   html += '</table>';
@@ -531,7 +618,6 @@ function resetTest(){
   document.getElementById('resultSection').classList.remove('show');
   document.getElementById('progressWrap').classList.remove('show');
   setRunning(false);
-  document.getElementById('btnRun').disabled = !g_algo || !g_algo.model_file;
 }
 
 function clearTempFiles(){

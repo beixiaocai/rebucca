@@ -319,10 +319,301 @@ def _build_engine(algo, abs_model):
     )
 
 
-def _run_test(task_id, algo, input_path, media_type, out_dir):
+_PERSON_LABELS = frozenset({"person", "Person", "行人", "0"})
+
+
+def _filter_person_detections(dets):
+    out = []
+    for d in dets or []:
+        lb = str(d.get("label") or "")
+        if lb in _PERSON_LABELS or lb.lower() == "person":
+            out.append(d)
+    return out
+
+
+def _iou_box(a, b):
+    ax1, ay1, ax2, ay2 = a
+    bx1, by1, bx2, by2 = b
+    ix1, iy1 = max(ax1, bx1), max(ay1, by1)
+    ix2, iy2 = min(ax2, bx2), min(ay2, by2)
+    iw, ih = max(0, ix2 - ix1), max(0, iy2 - iy1)
+    inter = iw * ih
+    if inter <= 0:
+        return 0.0
+    area_a = max(0, ax2 - ax1) * max(0, ay2 - ay1)
+    area_b = max(0, bx2 - bx1) * max(0, by2 - by1)
+    union = area_a + area_b - inter
+    return float(inter / union) if union > 0 else 0.0
+
+
+class _ReidTrack(object):
+    __slots__ = ("track_id", "box", "label", "score", "embedding", "embedding_hist", "missed", "hits", "_hist_max")
+
+    def __init__(self, track_id, box, label, score, embedding, hist_max=5):
+        self.track_id = track_id
+        self.box = box
+        self.label = label
+        self.score = score
+        self.embedding = embedding
+        self.embedding_hist = [embedding.copy()]
+        self.missed = 0
+        self.hits = 1
+        self._hist_max = hist_max
+
+    def update(self, box, score, emb):
+        self.box = box
+        self.score = score
+        self.embedding = emb
+        self.embedding_hist.append(emb.copy())
+        if len(self.embedding_hist) > self._hist_max:
+            self.embedding_hist.pop(0)
+        self.missed = 0
+        self.hits += 1
+
+    def mean_embedding(self):
+        if not self.embedding_hist:
+            return self.embedding
+        return np.mean(np.stack(self.embedding_hist, axis=0), axis=0)
+
+
+class _SimpleReIDTracker(object):
+    def __init__(self, iou_thr=0.3, emb_thr=0.5, max_missed=8):
+        self.iou_thr = iou_thr
+        self.emb_thr = emb_thr
+        self.max_missed = max_missed
+        self.tracks = {}
+        self._next_id = 1
+
+    def update(self, detections, embeddings):
+        assigned = set()
+        active_ids = []
+        for det, emb in zip(detections, embeddings):
+            best_id, best_score = None, self.emb_thr
+            for tid, tr in self.tracks.items():
+                if tr.label != det.get("label"):
+                    continue
+                iou = _iou_box(tr.box, det.get("box") or [0, 0, 0, 0])
+                if iou < self.iou_thr:
+                    continue
+                sim = float(np.dot(tr.mean_embedding(), emb))
+                if sim > best_score:
+                    best_score = sim
+                    best_id = tid
+            if best_id is not None:
+                self.tracks[best_id].update(det.get("box"), det.get("score"), emb)
+                assigned.add(best_id)
+                active_ids.append(best_id)
+            else:
+                tid = self._next_id
+                self._next_id += 1
+                tr = _ReidTrack(tid, det.get("box"), det.get("label"), det.get("score"), emb)
+                self.tracks[tid] = tr
+                assigned.add(tid)
+                active_ids.append(tid)
+        for tid, tr in list(self.tracks.items()):
+            if tid in assigned:
+                continue
+            tr.missed += 1
+            if tr.missed >= self.max_missed:
+                del self.tracks[tid]
+        return active_ids
+
+
+def _draw_reid_frame(frame_bgr, tracker, active_ids):
+    img = frame_bgr.copy()
+    for tid in active_ids:
+        tr = tracker.tracks.get(tid)
+        if not tr:
+            continue
+        x1, y1, x2, y2 = [int(v) for v in tr.box]
+        color = (0, 200, 80) if tr.hits >= 3 else (0, 180, 255)
+        cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
+        txt = "id=%d %s %.2f" % (tid, tr.label, float(tr.score or 0))
+        cv2.putText(img, txt, (x1, max(20, y1 - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 2, cv2.LINE_AA)
+    h, w = img.shape[:2]
+    cv2.rectangle(img, (w - 130, 6), (w - 6, 28), (22, 159, 133), -1)
+    cv2.putText(img, "REID TEST", (w - 122, 22), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
+    return img
+
+
+def _process_reid_frame(detector_engine, reid_engine, tracker, frame_bgr, sim_samples):
+    dets = detector_engine.detect(frame_bgr)
+    persons = _filter_person_detections(dets)
+    boxes = [p.get("box") for p in persons if p.get("box")]
+    valid_idx, embeddings = reid_engine.extract_embeddings(frame_bgr, boxes)
+    matched_dets = [persons[i] for i in valid_idx]
+    emb_rows = [embeddings[j] for j in range(len(valid_idx))]
+    active_ids = tracker.update(matched_dets, emb_rows) if matched_dets else []
+    for tid in active_ids:
+        tr = tracker.tracks.get(tid)
+        if tr and tr.hits >= 2:
+            sim_samples.append(float(np.dot(tr.embedding, tr.mean_embedding())))
+    vis = _draw_reid_frame(frame_bgr, tracker, active_ids)
+    return vis, len(persons), len(valid_idx), active_ids
+
+
+def _run_reid_test(task_id, algo, detector_algo, input_path, media_type, out_dir, t0):
+    abs_reid = _resolve_model_abs(algo.model_file)
+    abs_det = _resolve_model_abs(detector_algo.model_file)
+    if not abs_reid or not abs_det:
+        raise RuntimeError("model file not found")
+    reid_engine = _build_engine(algo, abs_reid)
+    det_engine = _build_engine(detector_algo, abs_det)
+    if not reid_engine.load() or not det_engine.load():
+        raise RuntimeError("engine load failed")
+    tracker = _SimpleReIDTracker()
+    sim_samples = []
+    infer_ms = 0.0
+    emb_total = 0
+    person_total = 0
+    track_peak = 0
+    all_dets = []
+
+    if media_type == "image":
+        _task_update(task_id, progress=15, message="processing image (detect+reid)")
+        frame = cv2.imread(input_path)
+        if frame is None:
+            raise RuntimeError("cannot read image")
+        h, w = frame.shape[:2]
+        t_inf = time.time()
+        vis, pc, ec, active_ids = _process_reid_frame(det_engine, reid_engine, tracker, frame, sim_samples)
+        infer_ms = (time.time() - t_inf) * 1000
+        person_total += pc
+        emb_total += ec
+        track_peak = max(track_peak, len(active_ids))
+        for tid in active_ids:
+            tr = tracker.tracks.get(tid)
+            if tr:
+                all_dets.append({
+                    "label": tr.label,
+                    "score": tr.score,
+                    "box": tr.box,
+                    "track_id": tr.track_id,
+                    "task": "reid",
+                })
+        out_path = os.path.join(out_dir, "output.jpg")
+        if not cv2.imwrite(out_path, vis, [int(cv2.IMWRITE_JPEG_QUALITY), 92]):
+            raise RuntimeError("failed to write output image")
+        report = {
+            "media_type": "image",
+            "input_size": [w, h],
+            "frame_count": 1,
+            "processed_frames": 1,
+            "inference_ms_total": round(infer_ms, 2),
+            "inference_ms_avg": round(infer_ms, 2),
+            "detection_count": person_total,
+            "embedding_count": emb_total,
+            "track_count": track_peak,
+            "reid_sim_mean": round(float(np.mean(sim_samples)), 4) if sim_samples else None,
+            "detections_summary": _summarize_detections(all_dets),
+            "detections": all_dets[:100],
+            "engine": algo.inference_engine,
+            "device": algo.device,
+            "task_type": "reid",
+            "detector_id": detector_algo.id,
+            "detector_name": detector_algo.name,
+            "elapsed_ms": round((time.time() - t0) * 1000, 2),
+        }
+        _task_update(
+            task_id, status="done", progress=100, message="done",
+            report=report, output_url=output_url_for_task(task_id), output_type="image",
+        )
+        return
+
+    cap = cv2.VideoCapture(input_path)
+    if not cap.isOpened():
+        raise RuntimeError("cannot open video")
+    fps = float(cap.get(cv2.CAP_PROP_FPS) or 25.0)
+    if fps <= 0 or fps > 120:
+        fps = 25.0
+    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
+    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
+    if w <= 0 or h <= 0:
+        raise RuntimeError("invalid video dimensions")
+    if total <= 0:
+        total = int(fps * 10)
+    max_frames = min(total, _MAX_VIDEO_FRAMES, max(1, int(fps * _MAX_VIDEO_SECONDS)))
+    raw_path = os.path.join(out_dir, "output_raw.mp4")
+    final_path = os.path.join(out_dir, "output.mp4")
+    writer = _open_video_writer(raw_path, fps, w, h)
+    if writer is None:
+        raise RuntimeError("cannot create video writer")
+    idx = 0
+    processed = 0
+    while idx < max_frames:
+        ret, frame = cap.read()
+        if not ret or frame is None:
+            break
+        t_inf = time.time()
+        vis, pc, ec, active_ids = _process_reid_frame(det_engine, reid_engine, tracker, frame, sim_samples)
+        infer_ms += (time.time() - t_inf) * 1000
+        person_total += pc
+        emb_total += ec
+        track_peak = max(track_peak, len(active_ids))
+        for tid in active_ids:
+            tr = tracker.tracks.get(tid)
+            if tr:
+                all_dets.append({
+                    "label": tr.label,
+                    "score": tr.score,
+                    "box": tr.box,
+                    "track_id": tr.track_id,
+                    "task": "reid",
+                })
+        writer.write(vis)
+        processed += 1
+        idx += 1
+        pct = 15 + int(70 * idx / max(1, max_frames))
+        _task_update(task_id, progress=min(85, pct), message="reid frame %d / %d" % (idx, max_frames))
+    cap.release()
+    writer.release()
+    if processed <= 0:
+        raise RuntimeError("no video frames processed")
+    if not os.path.isfile(raw_path) or os.path.getsize(raw_path) <= 0:
+        raise RuntimeError("raw video missing")
+    _task_update(task_id, progress=88, message="encoding video (H.264)")
+    if not _encode_video_h264(raw_path, final_path):
+        raise RuntimeError("video encode failed")
+    report = {
+        "media_type": "video",
+        "input_size": [w, h],
+        "frame_count": total,
+        "processed_frames": processed,
+        "fps": round(fps, 2),
+        "inference_ms_total": round(infer_ms, 2),
+        "inference_ms_avg": round(infer_ms / max(1, processed), 2),
+        "detection_count": person_total,
+        "embedding_count": emb_total,
+        "track_count": track_peak,
+        "reid_sim_mean": round(float(np.mean(sim_samples)), 4) if sim_samples else None,
+        "detections_summary": _summarize_detections(all_dets[:200]),
+        "detections": all_dets[:50],
+        "engine": algo.inference_engine,
+        "device": algo.device,
+        "task_type": "reid",
+        "detector_id": detector_algo.id,
+        "detector_name": detector_algo.name,
+        "elapsed_ms": round((time.time() - t0) * 1000, 2),
+        "output_video": True,
+    }
+    _task_update(
+        task_id, status="done", progress=100, message="done",
+        report=report, output_url=output_url_for_task(task_id), output_type="video",
+    )
+
+
+def _run_test(task_id, algo, input_path, media_type, out_dir, detector_algo=None):
     t0 = time.time()
     try:
         _task_update(task_id, status="running", progress=5, message="loading model")
+        task_type = (algo.task_type or "detect").lower()
+        if task_type == "reid":
+            if not detector_algo:
+                raise RuntimeError("ReID test requires detector model")
+            _run_reid_test(task_id, algo, detector_algo, input_path, media_type, out_dir, t0)
+            return
+
         abs_model = _resolve_model_abs(algo.model_file)
         if not abs_model:
             raise RuntimeError("model file not found: %s" % (algo.model_file or ""))
@@ -449,9 +740,12 @@ def _run_test(task_id, algo, input_path, media_type, out_dir):
         _task_update(task_id, status="error", progress=100, message=str(e), error=str(e))
 
 
-def start_test(algo, uploaded_path, original_name):
+def start_test(algo, uploaded_path, original_name, detector_algo=None):
     if not _CV2 or not _NP:
         raise RuntimeError("opencv/numpy not available")
+    task_type = (algo.task_type or "detect").lower()
+    if task_type == "reid" and not detector_algo:
+        raise RuntimeError("ReID test requires detector model")
     ext = os.path.splitext(original_name or uploaded_path)[1].lower()
     if ext in _IMAGE_EXT:
         media_type = "image"
@@ -492,7 +786,7 @@ def start_test(algo, uploaded_path, original_name):
 
     th = threading.Thread(
         target=_run_test,
-        args=(task_id, algo, input_path, media_type, out_dir),
+        args=(task_id, algo, input_path, media_type, out_dir, detector_algo),
         daemon=True,
     )
     th.start()

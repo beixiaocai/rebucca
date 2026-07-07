@@ -15,6 +15,7 @@ API：
 - /smallmodel/openUploadModel      POST(multipart) 上传模型文件
 - /smallmodel/openProbe            POST 探测模型 shape/labels
 - /smallmodel/openEngines          GET 本机可用引擎列表
+- /smallmodel/openDetectors        GET ReID 测试可选检测小模型列表
 - /smallmodel/openSetActive        POST 设为默认算法
 - /smallmodel/openAssignStreams    POST 把算法分配给多个摄像头
 """
@@ -107,7 +108,7 @@ def smallmodel_openIndex(request):
         if __check_ret:
             params = f_parseGetParams(request)
             page, page_size = _algo_parse_page_params(request, default_ps=10)
-            qs = AlgorithmModel.objects.all().order_by('-is_default', '-id')
+            qs = AlgorithmModel.objects.all().order_by('-id')
             engine = params.get('engine', '').strip()
             if engine:
                 qs = qs.filter(inference_engine=engine)
@@ -125,6 +126,31 @@ def smallmodel_openIndex(request):
     else:
         msg = LANG_VIEWS_T(request, "msg_method_not_supported")
     return f_responseJson({"code": 1000 if ret else 0, "msg": msg, "data": data, "pageData": page_data})
+
+
+def _apply_algo_rules(fields):
+    """按任务类型规范化字段（ReID 仅 OnnxRuntime + OSNet）。"""
+    task = (fields.get("task_type") or "detect").lower()
+    if task == "reid":
+        fields["inference_engine"] = "onnxruntime"
+        fields["algorithm_type"] = "osnet"
+        fields["labels"] = "[]"
+        if not fields.get("input_width"):
+            fields["input_width"] = 128
+        if not fields.get("input_height"):
+            fields["input_height"] = 256
+    return fields
+
+
+def _validate_algo_fields(request, fields):
+    task = (fields.get("task_type") or "detect").lower()
+    if task == "reid":
+        eng = (fields.get("inference_engine") or "").lower()
+        if eng not in ("onnxruntime", "onnx"):
+            return False, LANG_VIEWS_T(request, "alg_reid_onnx_only")
+        if (fields.get("algorithm_type") or "").lower() != "osnet":
+            return False, LANG_VIEWS_T(request, "alg_reid_osnet_only")
+    return True, ""
 
 
 def _parse_algo_params(params):
@@ -255,16 +281,41 @@ def smallmodel_openTestStart(request):
                     if ext not in allowed:
                         msg = LANG_VIEWS_T(request, "alg_unsupported_ext") + ": " + ext
                     else:
-                        fname = "%s_%s%s" % (uuid.uuid4().hex[:12], aid, ext)
-                        dest = os.path.join(_test_upload_dir(), fname)
-                        with open(dest, "wb") as out:
-                            for chunk in f.chunks():
-                                out.write(chunk)
-                        from app.services.algorithm_test_service import start_test
-                        task_id = start_test(a, dest, f.name)
-                        data = {"task_id": task_id}
-                        ret = True
-                        msg = LANG_VIEWS_T(request, "msg_success")
+                        detector_algo = None
+                        task_type = (a.task_type or "detect").lower()
+                        start_ok = True
+                        if task_type == "reid":
+                            detector_id = int(request.POST.get("detector_algorithm_id", 0) or 0)
+                            if not detector_id:
+                                start_ok = False
+                                msg = LANG_VIEWS_T(request, "alg_reid_need_detector")
+                            else:
+                                try:
+                                    detector_algo = AlgorithmModel.objects.get(id=detector_id)
+                                except AlgorithmModel.DoesNotExist:
+                                    start_ok = False
+                                    msg = LANG_VIEWS_T(request, "alg_reid_need_detector")
+                                else:
+                                    if (detector_algo.task_type or "detect").lower() != "detect":
+                                        start_ok = False
+                                        msg = LANG_VIEWS_T(request, "alg_reid_detector_must_detect")
+                                    elif detector_algo.state != 1:
+                                        start_ok = False
+                                        msg = LANG_VIEWS_T(request, "alg_reid_detector_disabled")
+                                    elif not detector_algo.model_file:
+                                        start_ok = False
+                                        msg = LANG_VIEWS_T(request, "alg_no_model_file")
+                        if start_ok:
+                            fname = "%s_%s%s" % (uuid.uuid4().hex[:12], aid, ext)
+                            dest = os.path.join(_test_upload_dir(), fname)
+                            with open(dest, "wb") as out:
+                                for chunk in f.chunks():
+                                    out.write(chunk)
+                            from app.services.algorithm_test_service import start_test
+                            task_id = start_test(a, dest, f.name, detector_algo=detector_algo)
+                            data = {"task_id": task_id}
+                            ret = True
+                            msg = LANG_VIEWS_T(request, "msg_success")
             except Exception as e:
                 msg = str(e)
         else:
@@ -364,7 +415,11 @@ def smallmodel_openAdd(request):
             params = f_parsePostParams(request)
             try:
                 fields = _parse_algo_params(params)
-                if not fields.get("name"):
+                fields = _apply_algo_rules(fields)
+                ok, err = _validate_algo_fields(request, fields)
+                if not ok:
+                    msg = err
+                elif not fields.get("name"):
                     msg = LANG_VIEWS_T(request, "alg_name_required")
                 else:
                     a = AlgorithmModel.objects.create(**fields)
@@ -392,23 +447,28 @@ def smallmodel_openEdit(request):
                 aid = int(params.get("id", 0))
                 a = AlgorithmModel.objects.get(id=aid)
                 fields = _parse_algo_params(params)
-                for k, v in fields.items():
-                    setattr(a, k, v)
-                a.save()
-                if a.is_default == 1:
-                    AlgorithmModel.objects.exclude(id=a.id).update(is_default=0)
-                # 热更新：若该算法被某路正在跑的摄像头使用，重载其 pipeline
-                try:
-                    from app.analysis.manager import AnalysisManager
-                    mgr = AnalysisManager()
-                    for s in a.streams.all():
-                        if mgr.is_running(s.id):
-                            mgr.stop(s.id)
-                            mgr.start(s)
-                except Exception:
-                    pass
-                ret = True
-                msg = LANG_VIEWS_T(request, "msg_success")
+                fields = _apply_algo_rules(fields)
+                ok, err = _validate_algo_fields(request, fields)
+                if not ok:
+                    msg = err
+                else:
+                    for k, v in fields.items():
+                        setattr(a, k, v)
+                    a.save()
+                    if a.is_default == 1:
+                        AlgorithmModel.objects.exclude(id=a.id).update(is_default=0)
+                    # 热更新：若该算法被某路正在跑的摄像头使用，重载其 pipeline
+                    try:
+                        from app.analysis.manager import AnalysisManager
+                        mgr = AnalysisManager()
+                        for s in a.streams.all():
+                            if mgr.is_running(s.id):
+                                mgr.stop(s.id)
+                                mgr.start(s)
+                    except Exception:
+                        pass
+                    ret = True
+                    msg = LANG_VIEWS_T(request, "msg_success")
             except Exception as e:
                 msg = str(e)
         else:
@@ -432,7 +492,10 @@ def smallmodel_openDel(request):
                 affected_streams = list(a.streams.values_list('id', flat=True))
                 # 检查是否有业务算法引用此小模型
                 from app.models import BizAlgorithmModel
-                ref_count = BizAlgorithmModel.objects.filter(small_model_id=aid).count()
+                from django.db.models import Q
+                ref_count = BizAlgorithmModel.objects.filter(
+                    Q(small_model_id=aid) | Q(detector_model_id=aid)
+                ).count()
                 if ref_count > 0:
                     raise ValueError(LANG_VIEWS_T(request, "smallmodel_in_use_by_biz"))
                 # 停止使用该算法的 pipeline（必须在解绑前完成）
@@ -571,7 +634,16 @@ def smallmodel_openProbe(request):
                         from app.analysis.engines.factory import EngineFactory, list_engines
                         from app.analysis.engines.base import EngineNotAvailableError
                         try:
-                            eng = EngineFactory.create(engine_name, model_file=abs_path)
+                            task_type = (params.get("task_type") or "detect").strip().lower()
+                            algorithm_type = (params.get("algorithm_type") or "yolo8").strip()
+                            if task_type == "reid":
+                                engine_name = "onnxruntime"
+                            eng = EngineFactory.create(
+                                engine_name,
+                                model_file=abs_path,
+                                task_type=task_type,
+                                algorithm_type=algorithm_type,
+                            )
                             data = eng.probe()
                             ret = True
                             msg = LANG_VIEWS_T(request, "msg_success")
@@ -599,6 +671,35 @@ def smallmodel_openEngines(request):
                 # 附带 device_options 便于前端直接渲染
                 for item in data:
                     item["device_options"] = device_options(item["name"])
+                ret = True
+                msg = LANG_VIEWS_T(request, "msg_success")
+            except Exception as e:
+                msg = str(e)
+        else:
+            msg = __check_msg
+    else:
+        msg = LANG_VIEWS_T(request, "msg_method_not_supported")
+    return f_responseJson({"code": 1000 if ret else 0, "msg": msg, "data": data})
+
+
+def smallmodel_openDetectors(request):
+    """列出可用于 ReID 测试的检测小模型（task_type=detect 且启用）。"""
+    ret = False
+    msg = LANG_VIEWS_T(request, "msg_unknown_error")
+    data = []
+    if request.method == 'GET':
+        __check_ret, __check_msg = f_checkRequestSafe(request)
+        if __check_ret:
+            try:
+                qs = AlgorithmModel.objects.filter(state=1, task_type="detect").order_by("-is_default", "-id")
+                data = [{
+                    "id": a.id,
+                    "name": a.name,
+                    "model_file": a.model_file,
+                    "inference_engine": a.inference_engine,
+                    "algorithm_type": a.algorithm_type,
+                    "is_default": a.is_default,
+                } for a in qs]
                 ret = True
                 msg = LANG_VIEWS_T(request, "msg_success")
             except Exception as e:

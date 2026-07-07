@@ -50,6 +50,8 @@ def _biz_to_dict(b, detail=False):
         "flow_type": b.flow_type,
         "small_model_id": b.small_model_id,
         "small_model_name": b.small_model.name if b.small_model_id and b.small_model else "",
+        "detector_model_id": b.detector_model_id,
+        "detector_model_name": b.detector_model.name if b.detector_model_id and b.detector_model else "",
         "target_labels": labels,
         "llm_id": b.llm_id,
         "llm_name": b.llm.name if b.llm_id and b.llm else "",
@@ -58,6 +60,8 @@ def _biz_to_dict(b, detail=False):
         "post_process": b.post_process or BizAlgorithmModel.POST_AREA,
         "ref_angle": float(getattr(b, "ref_angle", 90.0) or 90.0),
         "angle_tolerance": float(getattr(b, "angle_tolerance", 45.0) or 45.0),
+        "forward_count_threshold": int(getattr(b, "forward_count_threshold", 0) or 0),
+        "reverse_count_threshold": int(getattr(b, "reverse_count_threshold", 0) or 0),
         "state": b.state,
         "create_time": str(b.create_time),
             "zone_count": b.zones.count(),
@@ -74,15 +78,26 @@ def _biz_to_dict(b, detail=False):
         d["small_model_engine"] = ""
         d["small_model_file_exists"] = False
         d["small_model_file_path"] = ""
+    detector = b.detector_model if (b.detector_model_id and b.detector_model) else None
+    if detector:
+        d["detector_model_file"] = detector.model_file or ""
+        d["detector_model_engine"] = detector.inference_engine or ""
+        d["detector_model_file_exists"] = _check_model_file_exists(detector.model_file or "")
+    else:
+        d["detector_model_file"] = ""
+        d["detector_model_engine"] = ""
+        d["detector_model_file_exists"] = False
     flow_names = {
         BizAlgorithmModel.FLOW_SMALL: "小模型+后处理",
         BizAlgorithmModel.FLOW_LLM: "大模型+后处理",
         BizAlgorithmModel.FLOW_BOTH: "小模型+大模型+后处理",
+        BizAlgorithmModel.FLOW_DETECT_REID: "检测+ReID+后处理",
     }
     d["flow_type_name"] = flow_names.get(b.flow_type, str(b.flow_type))
     post_names = {
         BizAlgorithmModel.POST_AREA: "区域入侵",
         BizAlgorithmModel.POST_LINE_CROSS: "越线检测",
+        BizAlgorithmModel.POST_LINE_COUNT: "越线计数",
         BizAlgorithmModel.POST_DIRECTION: "方向入侵",
         BizAlgorithmModel.POST_DENSITY: "密度报警",
         BizAlgorithmModel.POST_DWELL: "滞留报警",
@@ -99,10 +114,11 @@ def _validate_biz_fields(params, biz_id=0):
         flow_type = int(params.get("flow_type", 1))
     except Exception:
         flow_type = 1
-    if flow_type not in (1, 2, 3):
+    if flow_type not in (1, 2, 3, 4):
         raise ValueError("无效的流程类型")
 
     small_model_id = None
+    detector_model_id = None
     llm_id = None
     target_labels = []
     llm_prompt = (params.get("llm_prompt") or "").strip()
@@ -116,11 +132,47 @@ def _validate_biz_fields(params, biz_id=0):
             small_model_id = 0
         if small_model_id <= 0:
             raise ValueError("请选择小模型")
-        if not AlgorithmModel.objects.filter(id=small_model_id, state=1).exists():
+        sm = AlgorithmModel.objects.filter(id=small_model_id, state=1).first()
+        if not sm:
             raise ValueError("小模型不存在或已禁用")
+        if (getattr(sm, "task_type", "") or "detect").lower() == "reid":
+            raise ValueError("ReID 模型请使用「检测+ReID+后处理」流程，并同时选择 YOLO 检测小模型")
         target_labels = _parse_labels(params.get("target_labels"))
         if not target_labels:
             raise ValueError("请至少选择一个检测目标")
+
+    if flow_type == BizAlgorithmModel.FLOW_DETECT_REID:
+        try:
+            detector_model_id = int(params.get("detector_model_id", 0))
+        except Exception:
+            detector_model_id = 0
+        try:
+            small_model_id = int(params.get("small_model_id", 0))
+        except Exception:
+            small_model_id = 0
+        if detector_model_id <= 0:
+            raise ValueError("请选择检测小模型 (YOLO)")
+        if small_model_id <= 0:
+            raise ValueError("请选择 ReID 小模型 (OSNet)")
+        if detector_model_id == small_model_id:
+            raise ValueError("检测小模型与 ReID 小模型不能相同")
+        det = AlgorithmModel.objects.filter(id=detector_model_id, state=1).first()
+        if not det:
+            raise ValueError("检测小模型不存在或已禁用")
+        if (getattr(det, "task_type", "") or "detect").lower() != "detect":
+            raise ValueError("检测小模型必须是 YOLO 检测模型 (task_type=detect)")
+        reid = AlgorithmModel.objects.filter(id=small_model_id, state=1).first()
+        if not reid:
+            raise ValueError("ReID 小模型不存在或已禁用")
+        if (getattr(reid, "task_type", "") or "").lower() != "reid":
+            raise ValueError("ReID 小模型必须是 OSNet ReID 模型 (task_type=reid)")
+        target_labels = _parse_labels(params.get("target_labels"))
+        if not target_labels:
+            raise ValueError("请至少选择一个检测目标")
+        det_labels = _parse_labels(det.labels or "[]")
+        invalid = [lb for lb in target_labels if lb not in det_labels]
+        if invalid:
+            raise ValueError("检测目标不在检测小模型标签列表中：%s" % "、".join(invalid))
 
     if flow_type in (BizAlgorithmModel.FLOW_LLM, BizAlgorithmModel.FLOW_BOTH):
         try:
@@ -139,12 +191,27 @@ def _validate_biz_fields(params, biz_id=0):
     valid_posts = (
         BizAlgorithmModel.POST_AREA,
         BizAlgorithmModel.POST_LINE_CROSS,
+        BizAlgorithmModel.POST_LINE_COUNT,
         BizAlgorithmModel.POST_DIRECTION,
         BizAlgorithmModel.POST_DENSITY,
         BizAlgorithmModel.POST_DWELL,
     )
     if post_process not in valid_posts:
         raise ValueError("无效的后处理逻辑")
+
+    try:
+        forward_count_threshold = int(params.get("forward_count_threshold", 0) or 0)
+    except Exception:
+        forward_count_threshold = 0
+    try:
+        reverse_count_threshold = int(params.get("reverse_count_threshold", 0) or 0)
+    except Exception:
+        reverse_count_threshold = 0
+    forward_count_threshold = max(0, forward_count_threshold)
+    reverse_count_threshold = max(0, reverse_count_threshold)
+    if post_process == BizAlgorithmModel.POST_LINE_COUNT:
+        if forward_count_threshold <= 0 and reverse_count_threshold <= 0:
+            raise ValueError("越线计数至少设置一个方向的报警阈值（大于 0）")
 
     # DIRECTION 后处理参数
     try:
@@ -160,6 +227,7 @@ def _validate_biz_fields(params, biz_id=0):
         "name": name,
         "flow_type": flow_type,
         "small_model_id": small_model_id,
+        "detector_model_id": detector_model_id,
         "target_labels": json.dumps(target_labels, ensure_ascii=False),
         "llm_id": llm_id,
         "llm_prompt": llm_prompt,
@@ -167,6 +235,8 @@ def _validate_biz_fields(params, biz_id=0):
         "post_process": post_process,
         "ref_angle": ref_angle,
         "angle_tolerance": angle_tolerance,
+        "forward_count_threshold": forward_count_threshold,
+        "reverse_count_threshold": reverse_count_threshold,
         "state": int(params.get("state", 1)),
     }
 
@@ -182,7 +252,7 @@ def algorithm_openIndex(request):
     if request.method == 'GET':
         __check_ret, __check_msg = f_checkRequestSafe(request)
         if __check_ret:
-            qs = BizAlgorithmModel.objects.select_related('small_model', 'llm').order_by('-id')
+            qs = BizAlgorithmModel.objects.select_related('small_model', 'detector_model', 'llm').order_by('-id')
             state = request.GET.get('state', '').strip()
             if state != '':
                 qs = qs.filter(state=int(state))
@@ -273,6 +343,7 @@ def algorithm_openOptions(request):
                 "post_processes": [
                     {"value": BizAlgorithmModel.POST_AREA, "label": "区域入侵"},
                     {"value": BizAlgorithmModel.POST_LINE_CROSS, "label": "越线检测"},
+                    {"value": BizAlgorithmModel.POST_LINE_COUNT, "label": "越线计数"},
                     {"value": BizAlgorithmModel.POST_DIRECTION, "label": "方向入侵"},
                     {"value": BizAlgorithmModel.POST_DENSITY, "label": "密度报警"},
                     {"value": BizAlgorithmModel.POST_DWELL, "label": "滞留报警"},
@@ -281,6 +352,7 @@ def algorithm_openOptions(request):
                     {"value": 1, "label": "小模型 + 后处理"},
                     {"value": 2, "label": "大模型 + 后处理"},
                     {"value": 3, "label": "小模型 + 大模型 + 后处理"},
+                    {"value": 4, "label": "检测小模型 + ReID小模型 + 后处理"},
                 ],
             }
             ret = True

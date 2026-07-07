@@ -297,6 +297,29 @@ def api_openSnapShot(request):
     return f_responseJson({"code": 0, "msg": LANG_VIEWS_T(request, "nvr_snapshot_removed")})
 
 
+def _snap_http_response(data, status=200):
+    resp = HttpResponse(data, content_type="image/jpeg", status=status)
+    resp["Cache-Control"] = "no-store"
+    return resp
+
+
+def _capture_snap_file(rtsp_url, snap_path, ffmpeg_cmd):
+    if os.path.exists(snap_path):
+        try:
+            os.remove(snap_path)
+        except Exception:
+            pass
+    command = '"{ffmpeg}" -loglevel quiet -rtsp_transport tcp -stimeout 5000000 -i "{rtsp_url}" -frames:v 1 -y "{snap_path}"'.format(
+        ffmpeg=ffmpeg_cmd, rtsp_url=rtsp_url, snap_path=snap_path)
+    subprocess.run(command, shell=True, timeout=12, capture_output=True)
+    if os.path.exists(snap_path):
+        with open(snap_path, "rb") as f:
+            data = f.read()
+        if len(data) > 100:
+            return data
+    return None
+
+
 def api_openSnap(request):
     try:
         params = f_parseGetParams(request)
@@ -318,22 +341,19 @@ def api_openSnap(request):
                 with open(snap_path, "rb") as f:
                     data = f.read()
                 if len(data) > 100:
-                    return HttpResponse(data, content_type="image/jpeg")
+                    return _snap_http_response(data)
         rtsp_url = g_zlm.get_rtspUrl(app=app, name=name, request_ip="127.0.0.1")
         if not rtsp_url:
             return HttpResponse(b"no stream url available", status=404, content_type="text/plain")
         os.makedirs(snap_dir, exist_ok=True)
-        if os.path.exists(snap_path):
-            os.remove(snap_path)
         ffmpeg_cmd = g_config.ffmpeg
-        command = '"{ffmpeg}" -loglevel quiet -rtsp_transport tcp -i "{rtsp_url}" -frames:v 1 "{snap_path}"'.format(
-            ffmpeg=ffmpeg_cmd, rtsp_url=rtsp_url, snap_path=snap_path)
-        subprocess.run(command, shell=True, timeout=10, capture_output=True)
-        if os.path.exists(snap_path):
-            with open(snap_path, "rb") as f:
-                data = f.read()
-            if len(data) > 100:
-                return HttpResponse(data, content_type="image/jpeg")
+        data = _capture_snap_file(rtsp_url, snap_path, ffmpeg_cmd)
+        if not data:
+            # RTSP 首帧可能较慢，短暂等待后重试一次
+            time.sleep(0.6)
+            data = _capture_snap_file(rtsp_url, snap_path, ffmpeg_cmd)
+        if data:
+            return _snap_http_response(data)
         return HttpResponse(b"snap failed", status=404, content_type="text/plain")
     except subprocess.TimeoutExpired:
         return HttpResponse(b"snap timeout", status=404, content_type="text/plain")

@@ -17,6 +17,7 @@
 .biz-table th,.biz-table td{padding:10px 14px;font-size:13px;text-align:left;border-bottom:1px solid #f3f4f6;}
 .biz-table th{background:#fafbfc;color:#6b7280;font-weight:600;font-size:12px;}
 .biz-table tr:hover td{background:#f9fafb;}
+.biz-id-cell{color:#6b7280;font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap;}
 .biz-actions{display:flex;gap:6px;flex-wrap:wrap;}
 .biz-actions .btn{padding:4px 10px;font-size:11px;}
 .tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;}
@@ -101,6 +102,7 @@ select.biz-multi-select option:checked{background:#169F85;color:#fff;}
     <table class="biz-table">
       <thead>
         <tr>
+          <th>{{ T.th_id|default:'ID' }}</th>
           <th>{{ T.col_name|default:'名称' }}</th>
           <th>{{ T.biz_flow_type|default:'流程' }}</th>
           <th>{{ T.biz_small_model|default:'小模型' }}</th>
@@ -142,16 +144,27 @@ select.biz-multi-select option:checked{background:#169F85;color:#fff;}
             <option value="1">{{ T.biz_flow_1|default:'小模型 + 后处理' }}</option>
             <option value="2">{{ T.biz_flow_2|default:'大模型 + 后处理' }}</option>
             <option value="3">{{ T.biz_flow_3|default:'小模型 + 大模型 + 后处理' }}</option>
+            <option value="4">{{ T.biz_flow_4|default:'检测小模型 + ReID小模型 + 后处理' }}</option>
           </select>
         </div>
       </div>
 
       <div class="biz-section flow-panel show" id="panelSmall">
-        <div class="biz-section-title">{{ T.biz_section_small|default:'小模型推理' }}</div>
+        <div class="biz-section-title" id="panelSmallTitle">{{ T.biz_section_small|default:'小模型推理' }}</div>
+        <div class="biz-field" id="fieldDetector" style="display:none;">
+          <label>{{ T.biz_detector_model|default:'检测小模型 (YOLO)' }} *</label>
+          <select class="biz-input" id="f_detector_model" onchange="onDetectorModelChange()"></select>
+          <div class="biz-hint" id="detectorModelHint" style="display:none;"></div>
+        </div>
         <div class="biz-field">
-          <label>{{ T.biz_small_model|default:'小模型' }}</label>
+          <label id="labelSmallModel">{{ T.biz_small_model|default:'小模型' }}</label>
           <select class="biz-input" id="f_small_model" onchange="onSmallModelChange()"></select>
           <div class="biz-hint" id="smallModelHint" style="display:none;"></div>
+        </div>
+        <div class="biz-field" id="fieldReidHint" style="display:none;">
+          <div class="biz-hint" style="color:#1e40af;background:#eff6ff;padding:8px 10px;border-radius:6px;">
+            {{ T.biz_reid_flow_hint|default:'ReID 不能单独检测全图：先用 YOLO 定位目标，再用 OSNet 提取特征并关联 track_id，最后执行后处理（如越线计数）。' }}
+          </div>
         </div>
         <div class="biz-field">
           <label>{{ T.biz_targets|default:'检测目标' }}</label>
@@ -184,14 +197,29 @@ select.biz-multi-select option:checked{background:#169F85;color:#fff;}
           <div style="display:flex;gap:8px;align-items:center;">
             <select class="biz-input" id="f_post_process" style="flex:1;">
               <option value="AREA">{{ T.biz_post_area|default:'区域入侵' }}</option>
-              <option value="LINE_CROSS">{{ T.biz_post_line_cross|default:'越线检测' }}</option>
-              <option value="DIRECTION">{{ T.biz_post_direction|default:'方向入侵' }}</option>
+            <option value="LINE_CROSS">{{ T.biz_post_line_cross|default:'越线检测' }}</option>
+            <option value="LINE_COUNT">{{ T.biz_post_line_count|default:'越线计数' }}</option>
+            <option value="DIRECTION">{{ T.biz_post_direction|default:'方向入侵' }}</option>
               <option value="DENSITY">{{ T.biz_post_density|default:'密度报警' }}</option>
               <option value="DWELL">{{ T.biz_post_dwell|default:'滞留报警' }}</option>
             </select>
             <button type="button" class="btn" style="white-space:nowrap;" onclick="openPostHelp()">？{{ T.biz_post_help|default:'说明' }}</button>
           </div>
           <div class="biz-hint" id="postHint">{{ T.biz_post_area_hint|default:'目标中心进入布控多边形即触发报警' }}</div>
+        </div>
+        <div class="biz-field" id="panelLineCount" style="display:none;">
+          <label>{{ T.biz_line_count_threshold|default:'计数报警阈值' }}</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>
+              <span style="font-size:11px;color:#64748b;">{{ T.biz_forward_count|default:'正向 (A→B)' }}</span>
+              <input type="number" class="biz-input" id="f_forward_count_threshold" min="0" value="0" placeholder="0=不报警">
+            </div>
+            <div>
+              <span style="font-size:11px;color:#64748b;">{{ T.biz_reverse_count|default:'逆向 (B→A)' }}</span>
+              <input type="number" class="biz-input" id="f_reverse_count_threshold" min="0" value="0" placeholder="0=不报警">
+            </div>
+          </div>
+          <div class="biz-hint">{{ T.biz_line_count_threshold_hint|default:'累计过线人数达到阈值时触发报警；0 表示该方向不计数报警。布控需绘制矩形区域 + 方向线 A→B 定义正向。' }}</div>
         </div>
         <div class="biz-field">
           <label>{{ T.col_state|default:'状态' }}</label>
@@ -240,7 +268,7 @@ select.biz-multi-select option:checked{background:#169F85;color:#fff;}
     <div class="biz-modal-head">
       <div>
         <h3 class="biz-modal-title">{{ T.biz_post_help_title|default:'后处理方案说明' }}</h3>
-        <p class="biz-modal-sub">{{ T.biz_post_help_sub|default:'以下是 5 种可选的后处理方案，按布控场景选择' }}</p>
+        <p class="biz-modal-sub">{{ T.biz_post_help_sub|default:'共 6 种后处理，按场景选择' }}</p>
       </div>
       <button type="button" class="biz-modal-close" onclick="closePostHelp()">&times;</button>
     </div>
@@ -253,7 +281,6 @@ select.biz-multi-select option:checked{background:#169F85;color:#fff;}
         <div style="font-size:13px;color:#475569;line-height:1.6;">
           {{ T.biz_post_area_desc|default:'目标中心点进入布控多边形内即触发报警。适用于周界防范、禁入区域、危险区域等场景。' }}
         </div>
-        <div style="font-size:11px;color:#94a3b8;margin-top:6px;">触发条件：目标中心 ∈ 多边形 ∧ 类别命中 ∧ flow_type ∈ (1,3)</div>
       </div>
       <div class="post-help-item" style="padding:14px 0;border-bottom:1px solid #f3f4f6;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
@@ -261,9 +288,20 @@ select.biz-multi-select option:checked{background:#169F85;color:#fff;}
           <b style="font-size:14px;color:#1e293b;">{{ T.biz_post_line_cross|default:'越线检测' }}</b>
         </div>
         <div style="font-size:13px;color:#475569;line-height:1.6;">
-          {{ T.biz_post_line_cross_desc|default:'当目标轨迹跨过设定的有向警戒线时触发报警。警戒线由布控区域的 line_a、line_b 两个归一化坐标点(0~1)定义。适用于围栏越界、出入口计数、方向性越界等场景。' }}
+          {{ T.biz_post_line_cross_desc|default:'有人沿方向线正向（A→B）跨过警戒线时，立即触发一次报警。适用于围栏越界、禁止闯入等「一过线就报」的场景。' }}
         </div>
-        <div style="font-size:11px;color:#94a3b8;margin-top:6px;">触发条件：目标轨迹跨过 line_a→line_b ∧ 类别命中 ∧ flow_type ∈ (1,3)</div>
+      </div>
+      <div class="post-help-item" style="padding:14px 0;border-bottom:1px solid #f3f4f6;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span class="tag tag-post" style="background:#cffafe;color:#0e7490;">LINE_COUNT</span>
+          <b style="font-size:14px;color:#1e293b;">{{ T.biz_post_line_count|default:'越线计数' }}</b>
+        </div>
+        <div style="font-size:13px;color:#475569;line-height:1.6;">
+          {{ T.biz_post_line_count_desc|default:'按方向线 A→B 分别累计正向、逆向过线人数；累计达到阈值才报警。适用于人流统计、限流等场景。' }}
+        </div>
+        <div style="font-size:12px;color:#64748b;margin-top:8px;padding:8px 10px;background:#f8fafc;border-radius:6px;">
+          {{ T.biz_post_line_diff|default:'与越线检测的区别：越线检测是「过线立刻报」；越线计数是「累计到 N 人才报」，并可分别统计正向/逆向。' }}
+        </div>
       </div>
       <div class="post-help-item" style="padding:14px 0;border-bottom:1px solid #f3f4f6;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
@@ -271,9 +309,8 @@ select.biz-multi-select option:checked{background:#169F85;color:#fff;}
           <b style="font-size:14px;color:#1e293b;">{{ T.biz_post_direction|default:'方向入侵' }}</b>
         </div>
         <div style="font-size:13px;color:#475569;line-height:1.6;">
-          {{ T.biz_post_direction_desc|default:'当目标移动方向匹配设定方向时触发报警。方向由业务算法的 ref_angle（参考角度，0°=右/东，90°=下/南，180°=左/西，270°=上/北）和 angle_tolerance（容差角度，默认 45°）定义。适用于单向通行、逆行检测等场景。' }}
+          {{ T.biz_post_direction_desc|default:'目标在区域内移动时，若运动方向与设定方向一致则报警。适用于单向通行、逆行检测等场景。' }}
         </div>
-        <div style="font-size:11px;color:#94a3b8;margin-top:6px;">触发条件：目标位移向量方向 ∈ [ref_angle±tol] ∧ 类别命中 ∧ flow_type ∈ (1,3)</div>
       </div>
       <div class="post-help-item" style="padding:14px 0;border-bottom:1px solid #f3f4f6;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
@@ -281,9 +318,8 @@ select.biz-multi-select option:checked{background:#169F85;color:#fff;}
           <b style="font-size:14px;color:#1e293b;">{{ T.biz_post_density|default:'密度报警' }}</b>
         </div>
         <div style="font-size:13px;color:#475569;line-height:1.6;">
-          {{ T.biz_post_density_desc|default:'当布控区域内目标数量达到或超过设定阈值时触发报警。阈值由布控区域的 density_threshold 字段定义。报警采用"上升沿"触发：目标数从低于阈值升到阈值时报警一次，降回后再次升高才再报。适用于人群聚集、排队过长、车辆拥堵等场景。' }}
+          {{ T.biz_post_density_desc|default:'布控区域内同时存在的目标数达到或超过阈值时报警。适用于人群聚集、排队过长、车辆拥堵等场景。' }}
         </div>
-        <div style="font-size:11px;color:#94a3b8;margin-top:6px;">触发条件：区域内目标数 ≥ density_threshold ∧ flow_type ∈ (1,3)</div>
       </div>
       <div class="post-help-item" style="padding:14px 0;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
@@ -291,9 +327,8 @@ select.biz-multi-select option:checked{background:#169F85;color:#fff;}
           <b style="font-size:14px;color:#1e293b;">{{ T.biz_post_dwell|default:'滞留报警' }}</b>
         </div>
         <div style="font-size:13px;color:#475569;line-height:1.6;">
-          {{ T.biz_post_dwell_desc|default:'当目标在布控区域内停留时间超过设定阈值时触发报警。阈值由布控区域的 loiter_threshold（秒）定义。与 AREA 后处理的滞留（loiter）逻辑相同，但作为独立后处理类型，便于与"进入即报"的 AREA 区分语义。适用于逗留检测、可疑停留等场景。' }}
+          {{ T.biz_post_dwell_desc|default:'目标在布控区域内停留时间超过滞留阈值（秒）时报警。与区域入侵不同：区域入侵是进入即报，滞留是待够时间才报。' }}
         </div>
-        <div style="font-size:11px;color:#94a3b8;margin-top:6px;">触发条件：目标在区域内停留 ≥ loiter_threshold 秒 ∧ 类别命中 ∧ flow_type ∈ (1,3)</div>
       </div>
     </div>
     <div class="biz-modal-foot">
@@ -318,12 +353,7 @@ function loadOptions(cb){
 }
 
 function fillSelects(){
-  var sm = document.getElementById('f_small_model');
-  sm.innerHTML = '<option value="">'+_t('please_select','请选择')+'</option>';
-  (g_options.small_models||[]).forEach(function(m){
-    var flag = m.model_file_exists ? ' [✓就绪]' : (m.model_file ? ' [✗文件缺失]' : ' [✗未配置]');
-    sm.innerHTML += '<option value="'+m.id+'">'+esc(m.name)+flag+'</option>';
-  });
+  refreshModelSelects();
   var ll = document.getElementById('f_llm');
   ll.innerHTML = '<option value="">'+_t('please_select','请选择')+'</option>';
   (g_options.llms||[]).forEach(function(m){
@@ -331,35 +361,99 @@ function fillSelects(){
   });
 }
 
-function getFlowType(){
-  return parseInt(document.getElementById('f_flow_type').value, 10) || 1;
+function isDetectModel(m){
+  return m && (m.task_type || 'detect').toLowerCase() !== 'reid';
+}
+function isReidModel(m){
+  return m && (m.task_type || '').toLowerCase() === 'reid';
+}
+
+function modelOptionLabel(m){
+  var flag = m.model_file_exists ? ' [✓就绪]' : (m.model_file ? ' [✗文件缺失]' : ' [✗未配置]');
+  return esc(m.name) + flag;
+}
+
+function refreshModelSelects(){
+  var ft = getFlowType();
+  var isReidFlow = ft === 4;
+  var detSel = document.getElementById('f_detector_model');
+  var smSel = document.getElementById('f_small_model');
+  var prevDet = detSel ? detSel.value : '';
+  var prevSm = smSel ? smSel.value : '';
+  if(detSel){
+    detSel.innerHTML = '<option value="">'+_t('please_select','请选择')+'</option>';
+    (g_options.small_models||[]).filter(isDetectModel).forEach(function(m){
+      detSel.innerHTML += '<option value="'+m.id+'">'+modelOptionLabel(m)+'</option>';
+    });
+    if(prevDet) detSel.value = prevDet;
+  }
+  if(smSel){
+    smSel.innerHTML = '<option value="">'+_t('please_select','请选择')+'</option>';
+    var list = isReidFlow
+      ? (g_options.small_models||[]).filter(isReidModel)
+      : (g_options.small_models||[]).filter(isDetectModel);
+    list.forEach(function(m){
+      smSel.innerHTML += '<option value="'+m.id+'">'+modelOptionLabel(m)+'</option>';
+    });
+    if(prevSm) smSel.value = prevSm;
+  }
+  document.getElementById('fieldDetector').style.display = isReidFlow ? '' : 'none';
+  document.getElementById('fieldReidHint').style.display = isReidFlow ? '' : 'none';
+  document.getElementById('labelSmallModel').textContent = isReidFlow
+    ? _t('biz_reid_model','ReID 小模型 (OSNet)')
+    : _t('biz_small_model','小模型');
+  document.getElementById('panelSmallTitle').textContent = isReidFlow
+    ? _t('biz_section_detect_reid','检测 + ReID 推理')
+    : _t('biz_section_small','小模型推理');
 }
 
 function onFlowChange(){
   var ft = getFlowType();
-  document.getElementById('panelSmall').classList.toggle('show', ft===1 || ft===3);
+  document.getElementById('panelSmall').classList.toggle('show', ft===1 || ft===3 || ft===4);
   document.getElementById('panelLlm').classList.toggle('show', ft===2 || ft===3);
+  refreshModelSelects();
+  onDetectorModelChange();
+  onSmallModelChange();
+}
+
+function showModelHint(el, m){
+  if(!el) return;
+  if(!m){ el.style.display='none'; return; }
+  el.style.display = 'block';
+  if(m.model_file_exists){
+    el.style.color = '#065f46';
+    el.innerHTML = '✓ 模型文件已就绪：<b>'+esc(m.model_file)+'</b>'+(m.engine?(' · 引擎 '+esc(m.engine)):'');
+  } else if(m.model_file){
+    el.style.color = '#991b1b';
+    el.innerHTML = '✗ 模型文件不存在：<b>'+esc(m.model_file)+'</b>，请到「小模型管理」上传或修改路径';
+  } else {
+    el.style.color = '#991b1b';
+    el.innerHTML = '✗ 未配置模型文件，请到「小模型管理」设置模型文件路径';
+  }
+}
+
+function onDetectorModelChange(){
+  if(getFlowType() !== 4) return;
+  var id = parseInt(document.getElementById('f_detector_model').value, 10);
+  var m = (g_options.small_models||[]).find(function(x){ return x.id===id; });
+  fillTargetSelect(m ? m.labels : [], getSelectedTargets());
+  showModelHint(document.getElementById('detectorModelHint'), m);
+}
+
+function getFlowType(){
+  return parseInt(document.getElementById('f_flow_type').value, 10) || 1;
 }
 
 function onSmallModelChange(){
+  var ft = getFlowType();
   var id = parseInt(document.getElementById('f_small_model').value, 10);
   var m = (g_options.small_models||[]).find(function(x){ return x.id===id; });
-  fillTargetSelect(m ? m.labels : [], []);
-  // 显示选中模型文件的加载状态
-  var hint = document.getElementById('smallModelHint');
-  if(!hint) return;
-  if(!m){ hint.style.display='none'; return; }
-  hint.style.display = 'block';
-  if(m.model_file_exists){
-    hint.style.color = '#065f46';
-    hint.innerHTML = '✓ 模型文件已就绪：<b>'+esc(m.model_file)+'</b>'+(m.engine?(' · 引擎 '+esc(m.engine)):'');
-  } else if(m.model_file){
-    hint.style.color = '#991b1b';
-    hint.innerHTML = '✗ 模型文件不存在：<b>'+esc(m.model_file)+'</b>，请到「小模型管理」上传或修改路径';
-  } else {
-    hint.style.color = '#991b1b';
-    hint.innerHTML = '✗ 未配置模型文件，请到「小模型管理」设置模型文件路径';
+  if(ft === 4){
+    showModelHint(document.getElementById('smallModelHint'), m);
+    return;
   }
+  fillTargetSelect(m ? m.labels : [], []);
+  showModelHint(document.getElementById('smallModelHint'), m);
 }
 
 function fillTargetSelect(labels, selected){
@@ -390,9 +484,13 @@ function getSelectedTargets(){
   return Array.from(sel.selectedOptions).map(function(o){ return o.value; });
 }
 
+function sortByIdDesc(list){
+  return (list || []).slice().sort(function(a, b){ return (parseInt(b.id, 10) || 0) - (parseInt(a.id, 10) || 0); });
+}
+
 function loadList(){
   Api.get('/algorithm/openIndex').then(function(res){
-    var rows = res.data || [];
+    var rows = sortByIdDesc(res.data || []);
     document.getElementById('empty').style.display = rows.length ? 'none' : 'block';
     document.getElementById('tbody').innerHTML = rows.map(function(r){
       var targets = (r.target_labels||[]).join(', ') || '—';
@@ -401,7 +499,16 @@ function loadList(){
         : '<span class="tag tag-off">'+_t('state_disabled','禁用')+'</span>';
       // 小模型列：显示名称 + 文件状态徽标
       var smCell = '—';
-      if(r.small_model_name){
+      if(r.flow_type === 4){
+        var parts = [];
+        if(r.detector_model_name){
+          parts.push('<div><span style="font-size:10px;color:#64748b;">YOLO</span> <b>'+esc(r.detector_model_name)+'</b></div>');
+        }
+        if(r.small_model_name){
+          parts.push('<div><span style="font-size:10px;color:#64748b;">ReID</span> <b>'+esc(r.small_model_name)+'</b></div>');
+        }
+        smCell = parts.length ? parts.join('') : '—';
+      } else if(r.small_model_name){
         var hasFile = !!r.small_model_file_exists;
         var badge = hasFile
           ? '<span class="model-badge ok">✓就绪</span>'
@@ -412,6 +519,7 @@ function loadList(){
         smCell = '<div class="model-name-wrap"><b>'+esc(r.small_model_name)+'</b>'+badge+'</div>'+sub;
       }
       return '<tr>'
+        +'<td class="biz-id-cell">'+r.id+'</td>'
         +'<td><b>'+esc(r.name)+'</b></td>'
         +'<td><span class="tag tag-flow">'+esc(r.flow_type_name)+'</span></td>'
         +'<td>'+smCell+'</td>'
@@ -434,13 +542,17 @@ function openAdd(){
   document.getElementById('f_id').value = '';
   document.getElementById('f_name').value = '';
   document.getElementById('f_flow_type').value = '1';
+  document.getElementById('f_detector_model').value = '';
   document.getElementById('f_small_model').value = '';
   document.getElementById('f_llm').value = '';
   document.getElementById('f_llm_prompt').value = '';
   document.getElementById('f_llm_validate').value = '';
   document.getElementById('f_post_process').value = 'AREA';
+  document.getElementById('f_forward_count_threshold').value = '0';
+  document.getElementById('f_reverse_count_threshold').value = '0';
   document.getElementById('f_state').value = '1';
   onFlowChange();
+  onPostChange();
   fillTargetSelect([], []);
   onSmallModelChange();
   document.getElementById('modal').classList.add('show');
@@ -455,15 +567,25 @@ function openEdit(id){
     document.getElementById('f_name').value = r.name;
     document.getElementById('f_flow_type').value = String(r.flow_type);
     onFlowChange();
+    document.getElementById('f_detector_model').value = r.detector_model_id || '';
     document.getElementById('f_small_model').value = r.small_model_id || '';
-    var m = (g_options.small_models||[]).find(function(x){ return x.id===r.small_model_id; });
-    fillTargetSelect(m ? m.labels : [], r.target_labels || []);
+    if(r.flow_type === 4){
+      var det = (g_options.small_models||[]).find(function(x){ return x.id===r.detector_model_id; });
+      fillTargetSelect(det ? det.labels : [], r.target_labels || []);
+      onDetectorModelChange();
+    } else {
+      var m = (g_options.small_models||[]).find(function(x){ return x.id===r.small_model_id; });
+      fillTargetSelect(m ? m.labels : [], r.target_labels || []);
+    }
     onSmallModelChange();
     document.getElementById('f_llm').value = r.llm_id || '';
     document.getElementById('f_llm_prompt').value = r.llm_prompt || '';
     document.getElementById('f_llm_validate').value = r.llm_validate || '';
     document.getElementById('f_post_process').value = r.post_process || 'AREA';
+    document.getElementById('f_forward_count_threshold').value = r.forward_count_threshold || 0;
+    document.getElementById('f_reverse_count_threshold').value = r.reverse_count_threshold || 0;
     document.getElementById('f_state').value = String(r.state);
+    onPostChange();
     document.getElementById('modal').classList.add('show');
   });
 }
@@ -476,11 +598,14 @@ function saveForm(){
     name: document.getElementById('f_name').value.trim(),
     flow_type: getFlowType(),
     small_model_id: document.getElementById('f_small_model').value,
+    detector_model_id: document.getElementById('f_detector_model').value,
     target_labels: getSelectedTargets(),
     llm_id: document.getElementById('f_llm').value,
     llm_prompt: document.getElementById('f_llm_prompt').value.trim(),
     llm_validate: document.getElementById('f_llm_validate').value.trim(),
     post_process: document.getElementById('f_post_process').value,
+    forward_count_threshold: parseInt(document.getElementById('f_forward_count_threshold').value, 10) || 0,
+    reverse_count_threshold: parseInt(document.getElementById('f_reverse_count_threshold').value, 10) || 0,
     state: document.getElementById('f_state').value
   };
   var url = payload.id ? '/algorithm/openEdit' : '/algorithm/openAdd';
@@ -584,6 +709,7 @@ function closePostHelp(){ document.getElementById('postHelpModal').classList.rem
 var POST_HINTS = {
   'AREA': '{{ T.biz_post_area_hint|default:"目标中心进入布控多边形即触发报警" }}',
   'LINE_CROSS': '{{ T.biz_post_line_cross_hint|default:"目标轨迹跨过警戒线 line_a→line_b 触发，需在布控区域配置警戒线" }}',
+  'LINE_COUNT': '{{ T.biz_post_line_count_hint|default:"按方向线 A→B 统计正向/逆向过线，达到阈值报警；布控需绘制矩形+方向线" }}',
   'DIRECTION': '{{ T.biz_post_direction_hint|default:"目标移动方向匹配 ref_angle 触发，参考角度 0=东 90=南 180=西 270=北" }}',
   'DENSITY': '{{ T.biz_post_density_hint|default:"区域内目标数 ≥ density_threshold 触发，需在布控区域配置密度阈值" }}',
   'DWELL': '{{ T.biz_post_dwell_hint|default:"目标在区域内停留 ≥ loiter_threshold 秒触发" }}'
@@ -591,6 +717,8 @@ var POST_HINTS = {
 function onPostChange(){
   var v = document.getElementById('f_post_process').value;
   document.getElementById('postHint').textContent = POST_HINTS[v] || '';
+  var panel = document.getElementById('panelLineCount');
+  if(panel) panel.style.display = (v === 'LINE_COUNT') ? 'block' : 'none';
 }
 document.getElementById('f_post_process').addEventListener('change', onPostChange);
 

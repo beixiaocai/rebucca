@@ -110,6 +110,7 @@ urlpatterns = [
     path('control/openAdd', ControlView.control_openAdd),
     path('control/openEdit', ControlView.control_openEdit),
     path('control/openDel', ControlView.control_openDel),
+    path('control/openToggleZone', ControlView.control_openToggleZone),
     path('control/openRecentAlarms', ControlView.control_openRecentAlarms),
     path('zone/index', RedirectView.as_view(url='/control/index', permanent=False)),
     # 旧 /zone/* API 别名（POST 与带参 GET 不可仅用 RedirectView）
@@ -151,6 +152,7 @@ urlpatterns = [
     path('smallmodel/openUploadModel', SmallModelView.smallmodel_openUploadModel),
     path('smallmodel/openProbe', SmallModelView.smallmodel_openProbe),
     path('smallmodel/openEngines', SmallModelView.smallmodel_openEngines),
+    path('smallmodel/openDetectors', SmallModelView.smallmodel_openDetectors),
     path('smallmodel/openSetActive', SmallModelView.smallmodel_openSetActive),
     path('smallmodel/openAssignStreams', SmallModelView.smallmodel_openAssignStreams),
 

@@ -147,14 +147,16 @@ def pipeline_process_main(config, event_queue, cmd_queue, status_dict,
                 continue
             if not cmd:
                 continue
-            if cmd.get("cmd") == "stop":
-                pipeline.stop()
-                break
-            if cmd.get("cmd") == "reload_zones":
-                pipeline.zone_polygons = cmd.get("zones") or []
-                if cmd.get("analyze_fps") is not None:
-                    pipeline.set_analyze_fps(cmd.get("analyze_fps"))
-                pipeline.reset_zone_runtime_state()
+            try:
+                if cmd.get("cmd") == "stop":
+                    pipeline.stop()
+                    break
+                if cmd.get("cmd") == "reload_zones":
+                    pipeline.set_zone_polygons(cmd.get("zones") or [])
+                    if cmd.get("analyze_fps") is not None:
+                        pipeline.set_analyze_fps(cmd.get("analyze_fps"))
+            except Exception as e:
+                log.exception("pipeline[%s] 命令处理失败: %s", stream_code, e)
 
     cmd_thread = threading.Thread(target=cmd_listener, name="cmd-%s" % stream_id, daemon=True)
     cmd_thread.start()

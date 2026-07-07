@@ -122,7 +122,7 @@ def alarm_openIndex(request):
         __check_ret, __check_msg = f_checkRequestSafe(request)
         if __check_ret:
             page, page_size = _parse_page_params(request, default_ps=20)
-            qs = AlarmModel.objects.all().order_by('-timestamp')
+            qs = AlarmModel.objects.all().order_by('-id')
             stream_id = request.GET.get('stream_id')
             if stream_id:
                 qs = qs.filter(stream_id=int(stream_id))

@@ -115,11 +115,51 @@ class CameraPipeline(object):
         # 扩展后处理运行时状态
         self._track_centers = {}        # track_id -> (cx, cy) 上一帧中心，用于越线/方向判断
         self._line_cross_fired = set()  # (track_id, zone_id, biz_id) 本次已报越线（避免重复）
+        self._line_count_state = {}     # (zone_id, biz_id) -> {forward, reverse}
+        self._line_count_alert_ts = {}  # (zone_id, biz_id, direction) -> last alert ts
         self._density_fired = set()     # (zone_id, biz_id) 本次密度已报警（按算法独立，目标数降回前不重复）
         self._direction_fired = set()   # (track_id, zone_id, biz_id) 方向报警去重
+        self._area_alarm_last_ts = {}   # (track_id, zone_id, biz_id) -> ts 区域入侵持续报警节流
+        self._force_detect = False        # 有区域类布控时持续跑检测，避免 MOG2 门控漏报
+        self._zone_config_warned = set()
+        self._start_ts = 0.0
+        self._last_frame_ts = 0.0
+        self._update_detector_policy()
+
+    def _update_detector_policy(self):
+        """有区域/越线等小模型后处理时，不应仅依赖运动门控触发检测。"""
+        self._force_detect = False
+        for z in self.zone_polygons or []:
+            coords = z.get("coords") or []
+            zid = z.get("id")
+            for r in (z.get("biz_algorithms") or []):
+                flow = int(r.get("flow_type") or 0)
+                post = r.get("post_process") or ""
+                if flow not in (1, 3, 4):
+                    continue
+                if post in ("AREA", "DWELL", "DENSITY", "LINE_CROSS", "LINE_COUNT", "DIRECTION"):
+                    self._force_detect = True
+                    if len(coords) < 3 and post in ("AREA", "DWELL", "DENSITY"):
+                        key = (zid, post)
+                        if key not in self._zone_config_warned:
+                            self._zone_config_warned.add(key)
+                            logger.warning(
+                                "pipeline[%s] 布控 #%s「%s」缺少有效区域(≥3点)，%s 不会触发",
+                                self.stream_code, zid, z.get("name") or "—", post,
+                            )
+        if self._force_detect:
+            logger.info(
+                "pipeline[%s] 已启用持续目标检测（布控含区域/越线类后处理，不受运动门控限制）",
+                self.stream_code,
+            )
+
+    def set_zone_polygons(self, zones):
+        self.zone_polygons = zones or []
+        self._update_detector_policy()
+        self.reset_zone_runtime_state()
 
     def reset_zone_runtime_state(self):
-        """热更新布控后清空区域/LLM/滞留运行时状态"""
+        """热更新/重启布控后清空运行时状态，使进入区域报警可重新触发。"""
         self._last_zone_state = {}
         self._track_enter_ts = {}
         self._llm_zone_last_ts = {}
@@ -127,8 +167,15 @@ class CameraPipeline(object):
         self._loiter_fired = set()
         self._track_centers = {}
         self._line_cross_fired = set()
+        self._line_count_state = {}
+        self._line_count_alert_ts = {}
         self._density_fired = set()
         self._direction_fired = set()
+        self._area_alarm_last_ts = {}
+        try:
+            self._tracker.reset()
+        except Exception:
+            pass
 
     def set_analyze_fps(self, analyze_fps):
         fps = float(analyze_fps)
@@ -159,29 +206,33 @@ class CameraPipeline(object):
 
     # ============ 解码线程 ============
     def _decode_loop(self):
-        try:
-            self._frame_source.open()
-        except Exception as e:
-            logger.error("pipeline[%s] 打开流失败: %s" % (self.stream_code, str(e)))
-            self._running = False
-            return
         logger.info("pipeline[%s] 解码线程启动 url=%s" % (self.stream_code, self.rtsp_url))
         while self._decode_running and self._running:
             try:
+                if self._frame_source._cap is None or not self._frame_source._cap.isOpened():
+                    try:
+                        self._frame_source.open()
+                    except Exception as e:
+                        logger.warning(
+                            "pipeline[%s] 打开流失败，%ss 后重试: %s",
+                            self.stream_code, self._frame_source.reconnect_interval, str(e),
+                        )
+                        time.sleep(self._frame_source.reconnect_interval)
+                        continue
                 ok, frame = self._frame_source.read()
                 if not ok or frame is None:
-                    time.sleep(0.05)
+                    time.sleep(0.2)
                     continue
+                self._last_frame_ts = time.time()
                 with self._queue_lock:
                     if len(self._frame_queue) >= self._frame_queue.maxlen:
-                        # deque 满会自动丢最旧，这里手动统计丢弃数
                         self._dropped_count += 1
                     self._frame_queue.append(frame)
                 self._decoded_count += 1
                 self._fps_window_decoded += 1
             except Exception as e:
                 logger.warning("pipeline[%s] 解码异常: %s" % (self.stream_code, str(e)))
-                time.sleep(0.1)
+                time.sleep(0.5)
         try:
             self._frame_source.close()
         except Exception:
@@ -202,6 +253,7 @@ class CameraPipeline(object):
     # ============ 分析循环 ============
     def run(self):
         self._running = True
+        self._start_ts = time.time()
         self._decode_running = True
         self._decode_thread = threading.Thread(
             target=self._decode_loop, name="decode-%s" % self.stream_id, daemon=True)
@@ -258,9 +310,10 @@ class CameraPipeline(object):
     def _process_frame(self, frame):
         motion_boxes = self._motion.detect(frame)
         has_motion = len(motion_boxes) > 0
+        run_detect = has_motion or self._force_detect
 
         detections = []
-        if has_motion:
+        if run_detect:
             if self._detectors:
                 # 多检测器：依次推理，合并结果，每条标注来源算法
                 for d in self._detectors:
@@ -482,6 +535,104 @@ class CameraPipeline(object):
                 except Exception as e:
                     logger.warning("pipeline[%s] LLM 区域分析失败: %s" % (self.stream_code, str(e)))
 
+    def _process_line_rules(self, tr, zone_cfg, zid, tid, box, prev_center, cur_center, w, h, frame, now):
+        """LINE_CROSS / LINE_COUNT 后处理（需 zone 已配置 line_a/line_b）。"""
+        if not prev_center:
+            return
+        matched_rules = self._matched_rules(tr, zone_cfg)
+        if not matched_rules:
+            return
+        line_a = (zone_cfg or {}).get("line_a")
+        line_b = (zone_cfg or {}).get("line_b")
+        if not line_a or not line_b:
+            return
+        ax = float(line_a[0]) * w
+        ay = float(line_a[1]) * h
+        bx = float(line_b[0]) * w
+        by = float(line_b[1]) * h
+
+        line_rules = [r for r in matched_rules if r.get("post_process") == "LINE_CROSS"]
+        for lr in line_rules:
+            key = (tid, zid, lr.get("id"))
+            if key in self._line_cross_fired:
+                continue
+            if self._cross_line(prev_center, cur_center, (ax, ay), (bx, by)):
+                flow3_rule = self._flow3_needs_llm(zone_cfg, tr, post_process="LINE_CROSS") if lr.get("flow_type") == 3 else None
+                if flow3_rule and not self._llm_verify_track(frame, tr, flow3_rule):
+                    continue
+                if self._emit_biz_alarm(
+                    "line_cross", frame, tr, zone_cfg, lr,
+                    track_id=tid, zone_id=zid, box=box, now=now,
+                ):
+                    self._line_cross_fired.add(key)
+
+        count_rules = [r for r in matched_rules if r.get("post_process") == "LINE_COUNT"]
+        for cr in count_rules:
+            direction = self._cross_line_direction(prev_center, cur_center, (ax, ay), (bx, by))
+            if not direction:
+                continue
+            flow3_rule = self._flow3_needs_llm(zone_cfg, tr, post_process="LINE_COUNT") if cr.get("flow_type") == 3 else None
+            if flow3_rule and not self._llm_verify_track(frame, tr, flow3_rule):
+                continue
+            counts = self._get_line_counts(zid, cr.get("id"))
+            counts[direction] = int(counts.get(direction) or 0) + 1
+            self._maybe_alert_line_count(frame, tr, zone_cfg, cr, direction, counts, tid, zid, box, now)
+
+    def _fire_area_alarms(self, tr, zid, zone_cfg, prev_zones, frame, box, now, tid):
+        """区域入侵(AREA)：进入时报警，停留期间按 detect_interval_sec 持续重复报警。"""
+        matched_rules = self._matched_rules(tr, zone_cfg)
+        if not matched_rules:
+            return False
+        interval = max(0.1, float((zone_cfg or {}).get("detect_interval_sec", 1) or 1))
+        is_new = zid not in prev_zones
+        fired_any = False
+        flow3_rule = self._flow3_needs_llm(zone_cfg, tr)
+        area_rules = [r for r in matched_rules if r.get("post_process") == "AREA"]
+        dwell_rules = [r for r in matched_rules if r.get("post_process") == "DWELL"]
+
+        def _should_fire(biz_id):
+            key = (tid, zid, biz_id)
+            last = self._area_alarm_last_ts.get(key, 0)
+            return is_new or (now - last >= interval)
+
+        def _mark_fired(biz_id):
+            self._area_alarm_last_ts[(tid, zid, biz_id)] = now
+
+        if flow3_rule:
+            biz_id = flow3_rule.get("id")
+            if _should_fire(biz_id):
+                if self._llm_verify_track(frame, tr, flow3_rule):
+                    if self._emit_biz_alarm(
+                        "entered_zone", frame, tr, zone_cfg, flow3_rule,
+                        track_id=tid, zone_id=zid, box=box, now=now,
+                    ):
+                        _mark_fired(biz_id)
+                        fired_any = True
+        else:
+            for r in area_rules:
+                biz_id = r.get("id")
+                if not _should_fire(biz_id):
+                    continue
+                if self._emit_biz_alarm(
+                    "entered_zone", frame, tr, zone_cfg, r,
+                    track_id=tid, zone_id=zid, box=box, now=now,
+                ):
+                    _mark_fired(biz_id)
+                    fired_any = True
+            if is_new:
+                for r in dwell_rules:
+                    if self._emit_biz_alarm(
+                        "entered_zone", frame, tr, zone_cfg, r,
+                        track_id=tid, zone_id=zid, box=box, now=now,
+                    ):
+                        _mark_fired(r.get("id"))
+                        fired_any = True
+
+        if fired_any or matched_rules:
+            if (tid, zid) not in self._track_enter_ts:
+                self._track_enter_ts[(tid, zid)] = now
+        return fired_any or bool(matched_rules)
+
     def _check_zones(self, active, frame_index, frame):
         now = time.time()
         h, w = self._frame_size(frame_index)
@@ -503,36 +654,17 @@ class CameraPipeline(object):
             prev = self._last_zone_state.get(tid, set())
             confirmed = set(prev & physical_in)
 
-            for zid in physical_in - prev:
+            for zid in physical_in:
                 zone_cfg = next((z for z in self.zone_polygons if z.get("id") == zid), None)
                 if not self._should_alarm_track_in_zone(tr, zone_cfg):
+                    logger.debug(
+                        "pipeline[%s] track %s in zone %s but no biz rule matched (label=%s algo=%s)",
+                        self.stream_code, tid, zid, tr.get("label"), tr.get("algorithm_id"),
+                    )
                     confirmed.add(zid)
                     continue
-                flow3_rule = self._flow3_needs_llm(zone_cfg, tr)
-                if flow3_rule and not self._llm_verify_track(frame, tr, flow3_rule):
-                    continue
-                matched_rules = self._matched_rules(tr, zone_cfg)
-                # AREA/DWELL：每个匹配的算法都独立触发 entered_zone 事件
-                area_like = [r for r in matched_rules if r.get("post_process") in ("AREA", "DWELL")]
-                fired_any = False
-                if flow3_rule:
-                    # flow3 走 LLM 校验通过后报 entered_zone
-                    if self._emit_biz_alarm(
-                        "entered_zone", frame, tr, zone_cfg, flow3_rule,
-                        track_id=tid, zone_id=zid, box=box, now=now,
-                    ):
-                        fired_any = True
-                else:
-                    for r in area_like:
-                        if self._emit_biz_alarm(
-                            "entered_zone", frame, tr, zone_cfg, r,
-                            track_id=tid, zone_id=zid, box=box, now=now,
-                        ):
-                            fired_any = True
-                if fired_any or matched_rules:
-                    # 命中任意后处理即记录进入时间，供后续 loiter/line_cross/direction/density 判断
-                    self._track_enter_ts[(tid, zid)] = now
-                    confirmed.add(zid)
+                self._fire_area_alarms(tr, zid, zone_cfg, prev, frame, box, now, tid)
+                confirmed.add(zid)
 
             for zid in prev - physical_in:
                 self._on_event({
@@ -553,6 +685,9 @@ class CameraPipeline(object):
                 for key in list(self._direction_fired):
                     if key[0] == tid and key[1] == zid:
                         self._direction_fired.discard(key)
+                for key in list(self._area_alarm_last_ts.keys()):
+                    if key[0] == tid and key[1] == zid:
+                        self._area_alarm_last_ts.pop(key, None)
 
             for zid in confirmed:
                 ts = self._track_enter_ts.get((tid, zid))
@@ -586,33 +721,11 @@ class CameraPipeline(object):
                         ):
                             self._loiter_fired.add((tid, zid, biz_id))
 
-                # —— LINE_CROSS 越线检测 ——
+                # —— LINE_CROSS / LINE_COUNT（必需区域内）——
                 prev_center = self._track_centers.get(tid)
                 cur_center = (cx, cy)
-                line_rules = [r for r in matched_rules if r.get("post_process") == "LINE_CROSS"]
-                for lr in line_rules:
-                    key = (tid, zid, lr.get("id"))
-                    if key in self._line_cross_fired:
-                        continue
-                    # 警戒线：zone 的 line_a/line_b 字段（坐标归一化 0~1）
-                    line_a = (zone_cfg or {}).get("line_a")
-                    line_b = (zone_cfg or {}).get("line_b")
-                    if not line_a or not line_b:
-                        continue
-                    # 缩放到像素坐标
-                    ax = float(line_a[0]) * w
-                    ay = float(line_a[1]) * h
-                    bx = float(line_b[0]) * w
-                    by = float(line_b[1]) * h
-                    if prev_center and self._cross_line(prev_center, cur_center, (ax, ay), (bx, by)):
-                        flow3_rule = self._flow3_needs_llm(zone_cfg, tr, post_process="LINE_CROSS") if lr.get("flow_type") == 3 else None
-                        if flow3_rule and not self._llm_verify_track(frame, tr, flow3_rule):
-                            continue
-                        if self._emit_biz_alarm(
-                            "line_cross", frame, tr, zone_cfg, lr,
-                            track_id=tid, zone_id=zid, box=box, now=now,
-                        ):
-                            self._line_cross_fired.add(key)
+                self._process_line_rules(
+                    tr, zone_cfg, zid, tid, box, prev_center, cur_center, w, h, frame, now)
 
                 # —— DIRECTION 方向入侵 ——
                 dir_rules = [r for r in matched_rules if r.get("post_process") == "DIRECTION"]
@@ -639,6 +752,16 @@ class CameraPipeline(object):
                 # 记录中心点供下一帧使用（移到循环外，避免多区域时覆盖 prev_center）
                 # 见下方统一更新
 
+            # —— 非必需区域：仅按方向线做越线检测/计数（不要求目标在多边形内）——
+            prev_center = self._track_centers.get(tid)
+            cur_center = (cx, cy)
+            for z in self.zone_polygons:
+                if z.get("is_required"):
+                    continue
+                zid = z.get("id")
+                self._process_line_rules(
+                    tr, z, zid, tid, box, prev_center, cur_center, w, h, frame, now)
+
             cur_state[tid] = confirmed
             # 统一更新 track_centers：每帧每目标只更新一次，避免多区域循环内覆盖
             self._track_centers[tid] = (cx, cy)
@@ -647,7 +770,7 @@ class CameraPipeline(object):
         for z in self.zone_polygons:
             zid = z.get("id")
             density_rules = [r for r in (z.get("biz_algorithms") or [])
-                             if r.get("post_process") == "DENSITY" and int(r.get("flow_type") or 0) in (1, 3)]
+                             if r.get("post_process") == "DENSITY" and int(r.get("flow_type") or 0) in (1, 3, 4)]
             if not density_rules:
                 continue
             count = zone_density_count.get(zid, 0)
@@ -693,6 +816,46 @@ class CameraPipeline(object):
     def _cross_line(self, prev_pt, cur_pt, line_a, line_b):
         from app.analysis.biz_rules import cross_line_segment
         return cross_line_segment(prev_pt, cur_pt, line_a, line_b)
+
+    def _cross_line_direction(self, prev_pt, cur_pt, line_a, line_b):
+        from app.analysis.biz_rules import cross_line_direction
+        return cross_line_direction(prev_pt, cur_pt, line_a, line_b)
+
+    def _line_count_key(self, zone_id, biz_id):
+        return (int(zone_id or 0), int(biz_id or 0))
+
+    def _get_line_counts(self, zone_id, biz_id):
+        key = self._line_count_key(zone_id, biz_id)
+        st = self._line_count_state.get(key)
+        if not st:
+            st = {"forward": 0, "reverse": 0}
+            self._line_count_state[key] = st
+        return st
+
+    def _maybe_alert_line_count(self, frame, tr, zone_cfg, lr, direction, counts, track_id, zone_id, box, now):
+        biz_id = lr.get("id")
+        threshold = int(lr.get("forward_count_threshold" if direction == "forward" else "reverse_count_threshold") or 0)
+        if threshold <= 0:
+            return
+        current = int(counts.get(direction) or 0)
+        if current < threshold:
+            return
+        alert_key = (zone_id, biz_id, direction)
+        last_ts = self._line_count_alert_ts.get(alert_key, 0)
+        if now - last_ts < 30.0:
+            return
+        tr_count = dict(tr)
+        tr_count["line_count_direction"] = direction
+        tr_count["forward_count"] = counts.get("forward", 0)
+        tr_count["reverse_count"] = counts.get("reverse", 0)
+        if self._emit_biz_alarm(
+            "line_count", frame, tr_count, zone_cfg, lr,
+            track_id=track_id, zone_id=zone_id, box=box, now=now,
+            forward_count=counts.get("forward", 0),
+            reverse_count=counts.get("reverse", 0),
+            line_count_direction=direction,
+        ):
+            self._line_count_alert_ts[alert_key] = now
 
     def _direction_match(self, dx, dy, ref_angle_deg, tolerance_deg):
         from app.analysis.biz_rules import direction_match
@@ -791,11 +954,37 @@ class CameraPipeline(object):
             j = i
         return inside
 
+    def _compute_stream_health(self):
+        now = time.time()
+        if not self._running:
+            return "stopped", 0.0
+        src = self._frame_source.health_snapshot() if self._frame_source else {}
+        src_health = src.get("stream_health") or "connecting"
+        stalled_sec = src.get("stalled_sec") or 0.0
+        if self._last_frame_ts > 0:
+            stalled_sec = max(stalled_sec, now - self._last_frame_ts)
+        if src_health in ("reconnecting", "disconnected", "connecting"):
+            if stalled_sec >= 12 or (self._decoded_count == 0 and now - self._start_ts >= 15):
+                return src_health if src_health != "connecting" else "reconnecting", stalled_sec
+            return src_health, stalled_sec
+        if stalled_sec >= 15 and self._analysis_fps < 0.05:
+            return "stalled", stalled_sec
+        if self._decoded_count == 0 and now - self._start_ts >= 20:
+            return "stalled", stalled_sec
+        return "ok", stalled_sec
+
     # ============ 运行状态 ============
     def status(self):
+        health, stalled_sec = self._compute_stream_health()
+        src = self._frame_source.health_snapshot() if self._frame_source else {}
+        effective_running = self._running and health in ("ok", "reconnecting", "connecting")
         return {
             "stream_id": self.stream_id,
-            "running": self._running,
+            "running": effective_running,
+            "stream_health": health,
+            "stalled_sec": round(stalled_sec, 1),
+            "reconnect_fail_count": src.get("reconnect_fail_count", 0),
+            "total_reconnects": src.get("total_reconnects", 0),
             "algorithm_name": self._algorithm_name,
             "engine": self._detector.ENGINE_NAME if self._detector else "",
             "detectors": [{"algorithm_id": d.get("algorithm_id"),
@@ -809,6 +998,10 @@ class CameraPipeline(object):
             "analysis_fps": round(self._analysis_fps, 1),
             "decode_fps": round(self._decode_fps, 1),
             "analyze_fps_target": self.analyze_fps,
+            "active_zone_ids": sorted([
+                int(z.get("id")) for z in (self.zone_polygons or [])
+                if z.get("id") is not None
+            ]),
         }
 
     def stop(self):

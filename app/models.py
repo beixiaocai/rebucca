@@ -100,26 +100,34 @@ class AlgorithmModel(models.Model):
         (ENGINE_OPENVINO, 'OpenVINO'),
     )
 
-    # 算法类型仅支持 YOLO 系列
+    # 算法类型：YOLO 检测系列 + ReID 特征系列
+    ALGO_TYPE_YOLO5 = 'yolo5'
+    ALGO_TYPE_YOLO8 = 'yolo8'
+    ALGO_TYPE_YOLO11 = 'yolo11'
+    ALGO_TYPE_YOLO26 = 'yolo26'
+    ALGO_TYPE_OSNET = 'osnet'
     ALGO_TYPE_CHOICES = (
-        ('yolo5', 'YOLOv5'),
-        ('yolo8', 'YOLOv8'),
-        ('yolo11', 'YOLOv11'),
-        ('yolo26', 'YOLO26'),
+        (ALGO_TYPE_YOLO5, 'YOLOv5'),
+        (ALGO_TYPE_YOLO8, 'YOLOv8'),
+        (ALGO_TYPE_YOLO11, 'YOLOv11'),
+        (ALGO_TYPE_YOLO26, 'YOLO26'),
+        (ALGO_TYPE_OSNET, 'OSNet ReID'),
     )
 
-    # YOLO 任务类型
+    # 任务类型
     TASK_DETECT = 'detect'
     TASK_SEGMENT = 'segment'
     TASK_CLASSIFY = 'classify'
     TASK_POSE = 'pose'
     TASK_OBB = 'obb'
+    TASK_REID = 'reid'
     TASK_CHOICES = (
         (TASK_DETECT, 'Detect'),
         (TASK_SEGMENT, 'Segment'),
         (TASK_CLASSIFY, 'Classify'),
         (TASK_POSE, 'Pose'),
         (TASK_OBB, 'OBB'),
+        (TASK_REID, 'ReID'),
     )
 
     # 推理设备
@@ -178,20 +186,24 @@ class BizAlgorithmModel(models.Model):
     FLOW_SMALL = 1
     FLOW_LLM = 2
     FLOW_BOTH = 3
+    FLOW_DETECT_REID = 4
     FLOW_CHOICES = (
         (FLOW_SMALL, '小模型+后处理'),
         (FLOW_LLM, '大模型+后处理'),
         (FLOW_BOTH, '小模型+大模型+后处理'),
+        (FLOW_DETECT_REID, '检测+ReID+后处理'),
     )
 
     POST_AREA = 'AREA'           # 区域入侵：目标中心在多边形内
     POST_LINE_CROSS = 'LINE_CROSS'  # 越线检测：轨迹跨过有向线段
+    POST_LINE_COUNT = 'LINE_COUNT'  # 越线计数：正向/逆向分别累计，超阈值报警
     POST_DIRECTION = 'DIRECTION'  # 方向入侵：移动方向匹配设定方向
     POST_DENSITY = 'DENSITY'     # 密度报警：区域内目标数 >= 阈值
     POST_DWELL = 'DWELL'         # 滞留报警：在区域内停留 >= 阈值秒
     POST_CHOICES = (
         (POST_AREA, '区域入侵'),
         (POST_LINE_CROSS, '越线检测'),
+        (POST_LINE_COUNT, '越线计数'),
         (POST_DIRECTION, '方向入侵'),
         (POST_DENSITY, '密度报警'),
         (POST_DWELL, '滞留报警'),
@@ -202,6 +214,10 @@ class BizAlgorithmModel(models.Model):
     small_model = models.ForeignKey(
         'AlgorithmModel', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='biz_algorithms', verbose_name='小模型',
+    )
+    detector_model = models.ForeignKey(
+        'AlgorithmModel', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='biz_algorithms_as_detector', verbose_name='检测小模型(YOLO)',
     )
     target_labels = models.TextField(default='[]', verbose_name='目标类别JSON')  # ["person","car"]
     llm = models.ForeignKey(
@@ -214,6 +230,8 @@ class BizAlgorithmModel(models.Model):
     # DIRECTION 后处理参数：参考角度(0°=右,90°=下,180°=左,270°=上) 与容差
     ref_angle = models.FloatField(default=90.0, verbose_name='方向参考角度')
     angle_tolerance = models.FloatField(default=45.0, verbose_name='方向容差(度)')
+    forward_count_threshold = models.IntegerField(default=0, verbose_name='正向计数报警阈值')  # 0=不报警
+    reverse_count_threshold = models.IntegerField(default=0, verbose_name='逆向计数报警阈值')  # 0=不报警
     state = models.IntegerField(default=1, verbose_name='状态')  # 0=禁用 1=启用
     create_time = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     last_update_time = models.DateTimeField(auto_now_add=True, verbose_name='更新时间')
@@ -247,7 +265,7 @@ class ZoneModel(models.Model):
     stream = models.ForeignKey(StreamModel, on_delete=models.CASCADE, verbose_name='所属摄像头')
     name = models.CharField(max_length=100, verbose_name='区域名称')
     coordinates = models.TextField(verbose_name='多边形坐标')  # JSON: [[x1,y1],[x2,y2],...]
-    is_required = models.IntegerField(default=0, verbose_name='是否必需区域')  # 1:目标必须经过此区域才触发告警
+    is_required = models.IntegerField(default=1, verbose_name='是否必需区域')  # 1:目标必须在区域内才触发区域类后处理
     loiter_threshold = models.IntegerField(default=0, verbose_name='滞留阈值(秒)')  # 0=不检测滞留
     detect_interval_sec = models.FloatField(default=1.0, verbose_name='检测间隔(秒)')  # 每 N 秒
     detect_frames = models.IntegerField(default=1, verbose_name='检测帧数')  # 分析 M 帧，频率=M/N fps

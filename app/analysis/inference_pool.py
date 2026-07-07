@@ -129,10 +129,16 @@ class InferenceProcessPool(object):
         self._lock = threading.Lock()
         self._running = False
         self._drain_thread = None
+        self._timeout_count = 0
+        self._last_timeout_ts = 0.0
 
     def start(self):
         if self._running:
-            return
+            alive = sum(1 for p in self._workers if p.is_alive())
+            if alive > 0:
+                return
+            logger.warning("InferenceProcessPool 标记运行中但 worker 已死，重新启动")
+            self.stop()
         ctx = mp.get_context("spawn")
         self._req_queue = ctx.Queue(maxsize=64)
         self._resp_queue = ctx.Queue(maxsize=64)
@@ -163,7 +169,7 @@ class InferenceProcessPool(object):
                 evt["resp"] = resp
                 evt["event"].set()
 
-    def detect(self, frame, algorithm, timeout=8.0):
+    def detect(self, frame, algorithm, timeout=30.0):
         """同步推理：将 frame + algorithm dict 发往子进程，等待结果"""
         if not self._running:
             self.start()
@@ -178,9 +184,22 @@ class InferenceProcessPool(object):
             return []
         return self.detect_jpeg(jpeg, algorithm, timeout=timeout)
 
-    def detect_jpeg(self, jpeg, algorithm, timeout=8.0):
+    def _ensure_workers_alive(self):
+        if not self._workers:
+            if self._running:
+                self.stop()
+            self.start()
+            return
+        alive = sum(1 for p in self._workers if p.is_alive())
+        if alive == 0:
+            logger.warning("推理 worker 已全部退出，正在重启 InferenceProcessPool")
+            self.stop()
+            self.start()
+
+    def detect_jpeg(self, jpeg, algorithm, timeout=30.0):
         """同步推理：直接传已编码的 JPEG bytes，跳过主进程 imencode/imdecode，
         消除 _inference_forwarder_loop 中的双重编解码与主进程 GIL 占用。"""
+        self._ensure_workers_alive()
         if not self._running:
             self.start()
         if not jpeg:
@@ -202,7 +221,9 @@ class InferenceProcessPool(object):
         if not evt["event"].wait(timeout=timeout):
             with self._lock:
                 self._pending.pop(req_id, None)
-            logger.warning("推理超时 req_id=%s", req_id)
+                self._timeout_count += 1
+                self._last_timeout_ts = time.time()
+            logger.warning("推理超时 req_id=%s (累计 %d)", req_id, self._timeout_count)
             return []
         resp = evt.get("resp") or {}
         if not resp.get("ok"):
@@ -211,11 +232,18 @@ class InferenceProcessPool(object):
         return resp.get("detections") or []
 
     def status(self):
+        self._ensure_workers_alive()
         alive = sum(1 for p in self._workers if p.is_alive())
+        with self._lock:
+            tc = self._timeout_count
+            lts = self._last_timeout_ts
+        degraded = alive > 0 and tc >= 3 and (time.time() - lts) < 120
         return {
             "workers": self.num_workers,
             "workers_alive": alive,
             "running": self._running,
+            "timeout_count": tc,
+            "inference_degraded": degraded,
         }
 
     def instance_count(self):

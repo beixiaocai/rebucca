@@ -78,6 +78,7 @@ def _biz_algo_to_zone_dict(ba):
         "name": ba.name or "",
         "flow_type": ba.flow_type,
         "small_model_id": ba.small_model_id,
+        "detector_model_id": ba.detector_model_id,
         "target_labels": labels_list,
         "llm_id": ba.llm_id,
         "llm_prompt": ba.llm_prompt or "",
@@ -85,6 +86,8 @@ def _biz_algo_to_zone_dict(ba):
         "post_process": ba.post_process or "AREA",
         "ref_angle": float(getattr(ba, "ref_angle", 90.0) or 90.0),
         "angle_tolerance": float(getattr(ba, "angle_tolerance", 45.0) or 45.0),
+        "forward_count_threshold": int(getattr(ba, "forward_count_threshold", 0) or 0),
+        "reverse_count_threshold": int(getattr(ba, "reverse_count_threshold", 0) or 0),
         "llm": llm_cfg,
     }
 
@@ -276,7 +279,7 @@ class AnalysisManager(object):
                     pass
                 # 直接透传 JPEG bytes 给推理池，避免主进程 imdecode + imencode 双重编解码，
                 # 消除主进程 GIL 占用（解码在 worker 子进程内完成）。
-                dets = pool.detect_jpeg(jpeg, algo)
+                dets = pool.detect_jpeg(jpeg, algo, timeout=30.0)
                 self._infer_resp_q.put({"req_id": req_id, "ok": True, "detections": dets})
             except Exception as e:
                 logger.warning("推理转发失败: %s", e)
@@ -348,7 +351,7 @@ class AnalysisManager(object):
         try:
             from app.models import ZoneModel
             qs = ZoneModel.objects.filter(stream_id=stream_id, state=1).prefetch_related(
-                'algorithms', 'algorithms__small_model', 'algorithms__llm')
+                'algorithms', 'algorithms__small_model', 'algorithms__detector_model', 'algorithms__llm')
             zones = []
             for z in qs:
                 try:
@@ -373,7 +376,10 @@ class AnalysisManager(object):
                 for ba in z.algorithms.filter(state=1):
                     biz_ids.append(ba.id)
                     biz_list.append(_biz_algo_to_zone_dict(ba))
-                    if ba.small_model_id:
+                    if int(ba.flow_type or 0) == 4:
+                        if ba.detector_model_id:
+                            small_ids.add(ba.detector_model_id)
+                    elif ba.small_model_id:
                         small_ids.add(ba.small_model_id)
                 interval = max(0.1, float(getattr(z, "detect_interval_sec", 1) or 1))
                 frames = max(1, int(getattr(z, "detect_frames", 1) or 1))
@@ -403,8 +409,14 @@ class AnalysisManager(object):
             algos = []
             seen = set()
             for z in ZoneModel.objects.filter(stream_id=stream.id, state=1).prefetch_related(
-                    'algorithms__small_model'):
+                    'algorithms__small_model', 'algorithms__detector_model'):
                 for ba in z.algorithms.filter(state=1):
+                    if int(ba.flow_type or 0) == 4:
+                        det = ba.detector_model
+                        if det and det.state == 1 and det.id not in seen:
+                            seen.add(det.id)
+                            algos.append(det)
+                        continue
                     sm = ba.small_model
                     if sm and sm.state == 1 and sm.id not in seen:
                         seen.add(sm.id)
@@ -643,6 +655,32 @@ class AnalysisManager(object):
                     self._purge_pipeline(sid)
             return alive
 
+    def _enrich_pipeline_status(self, stream_id, info):
+        """补充流健康状态与摄像头名称（不自动启停分析）。"""
+        if not info:
+            return info
+        try:
+            from app.models import StreamModel
+            s = StreamModel.objects.filter(id=stream_id).first()
+            if s:
+                info["stream_name"] = s.nickname or s.name or ("#%s" % stream_id)
+        except Exception:
+            pass
+        health = info.get("stream_health") or "ok"
+        stalled = float(info.get("stalled_sec") or 0)
+        fps = float(info.get("analysis_fps") or 0)
+        if health == "ok" and fps <= 0 and stalled >= 20:
+            info["stream_health"] = "stalled"
+            health = "stalled"
+        info["healthy"] = health == "ok" and fps > 0.05
+        if not info.get("active_zone_ids") and self.is_running(stream_id):
+            try:
+                zones = self._load_zones(stream_id)
+                info["active_zone_ids"] = sorted([int(z["id"]) for z in zones if z.get("id") is not None])
+            except Exception:
+                info["active_zone_ids"] = []
+        return info
+
     def get_pipeline_info(self, stream_id):
         with self._lock:
             item = self._pipelines.get(stream_id)
@@ -653,16 +691,29 @@ class AnalysisManager(object):
                 if handle:
                     st = handle.status()
                     if st:
-                        return st
-                return {"stream_id": stream_id, "running": self.is_running(stream_id), "analysis_fps": 0.0}
+                        return self._enrich_pipeline_status(stream_id, st)
+                alive = self.is_running(stream_id)
+                return self._enrich_pipeline_status(stream_id, {
+                    "stream_id": stream_id,
+                    "running": alive,
+                    "stream_health": "connecting" if alive else "stopped",
+                    "analysis_fps": 0.0,
+                    "stalled_sec": 0,
+                })
             pipe = item.get("pipeline")
             if not pipe:
                 return None
             try:
-                return pipe.status()
+                return self._enrich_pipeline_status(stream_id, pipe.status())
             except Exception as e:
                 logger.warning("get_pipeline_info err: %s" % str(e))
-                return {"stream_id": stream_id, "running": True, "analysis_fps": 0.0}
+                return self._enrich_pipeline_status(stream_id, {
+                    "stream_id": stream_id,
+                    "running": False,
+                    "stream_health": "stalled",
+                    "analysis_fps": 0.0,
+                    "stalled_sec": 0,
+                })
 
     def reload_zones(self, stream_id):
         with self._lock:
@@ -696,7 +747,10 @@ class AnalysisManager(object):
             pipe = item.get("pipeline")
             if not pipe:
                 return False
-            pipe.zone_polygons = zones
+            if hasattr(pipe, "set_zone_polygons"):
+                pipe.set_zone_polygons(zones)
+            else:
+                pipe.zone_polygons = zones
             pipe.set_analyze_fps(analyze_fps)
             pipe.reset_zone_runtime_state()
             if new_small_ids != cur_algo_ids:

@@ -198,18 +198,23 @@ github地址：https://github.com/beixiaocai/rebucca
             <option value="yolo8">YOLOv8</option>
             <option value="yolo11">YOLOv11</option>
             <option value="yolo26">YOLO26</option>
+            <option value="osnet">OSNet ReID</option>
           </select>
         </div>
         <div class="form-row">
           <label>{{ T.sm_task_type|default:'任务类型' }}</label>
-          <select id="f_task_type">
+          <select id="f_task_type" onchange="onTaskTypeChange()">
             <option value="detect">Detect</option>
             <option value="segment">Segment</option>
             <option value="classify">Classify</option>
             <option value="pose">Pose</option>
             <option value="obb">OBB</option>
+            <option value="reid">ReID</option>
           </select>
         </div>
+      </div>
+      <div id="reidHint" class="tip-bar info" style="display:none;margin-bottom:12px;padding:10px 12px;font-size:12px;">
+        <div class="tip-body">{{ T.sm_reid_hint|default:'ReID 特征模型仅支持 OnnxRuntime，输入默认 128×256；测试时需配合 YOLO 检测小模型裁剪行人。' }}</div>
       </div>
       <div class="form-grid" style="margin-top:12px;">
         <div class="form-row">
@@ -248,7 +253,7 @@ github地址：https://github.com/beixiaocai/rebucca
           <input id="f_input_height" type="number" value="640">
         </div>
       </div>
-      <div class="form-grid" style="margin-top:12px;">
+      <div class="form-grid" id="yoloThresholdPanel" style="margin-top:12px;">
         <div class="form-row">
           <label>{{ T.sm_conf_threshold|default:'置信度阈值' }}</label>
           <input id="f_conf_threshold" type="number" step="0.05" value="0.4">
@@ -258,7 +263,7 @@ github地址：https://github.com/beixiaocai/rebucca
           <input id="f_iou_threshold" type="number" step="0.05" value="0.5">
         </div>
       </div>
-      <div class="form-row" style="margin-top:12px;">
+      <div class="form-row" id="labelsPanel" style="margin-top:12px;">
         <label>{{ T.sm_labels|default:'支持类别' }} <span style="font-weight:400;color:#9ca3af;font-size:11px;">({{ T.sm_labels_hint|default:'用英文逗号隔开，支持中文' }})</span></label>
         <input id="f_labels" placeholder="person,car,bicycle,行人和车辆">
       </div>
@@ -358,6 +363,37 @@ function checkModels(){
   });
 }
 
+function onTaskTypeChange(){
+  var task = document.getElementById('f_task_type').value;
+  var isReid = task === 'reid';
+  var algoSel = document.getElementById('f_algorithm_type');
+  var engSel = document.getElementById('f_inference_engine');
+  var hint = document.getElementById('reidHint');
+  var labelsPanel = document.getElementById('labelsPanel');
+  var thrPanel = document.getElementById('yoloThresholdPanel');
+  if(hint) hint.style.display = isReid ? 'flex' : 'none';
+  if(labelsPanel) labelsPanel.style.display = isReid ? 'none' : '';
+  if(thrPanel) thrPanel.style.display = isReid ? 'none' : '';
+  if(isReid){
+    algoSel.value = 'osnet';
+    if(engSel){
+      engSel.value = 'onnxruntime';
+      engSel.disabled = true;
+    }
+    document.getElementById('f_input_width').value = 128;
+    document.getElementById('f_input_height').value = 256;
+    document.getElementById('f_labels').value = '';
+  } else {
+    if(engSel) engSel.disabled = false;
+    if(algoSel.value === 'osnet') algoSel.value = 'yolo8';
+  }
+  onEngineChange();
+}
+
+function typeLabelMap(){
+  return {yolo5:'YOLOv5',yolo8:'YOLOv8',yolo11:'YOLOv11',yolo26:'YOLO26',osnet:'OSNet ReID'};
+}
+
 function onAlgFilterChange(){
   g_currentPage = 1;
   loadAlgorithms();
@@ -443,6 +479,10 @@ function renderEmpty(show){
   document.getElementById('algTable').style.display = show?'none':'';
 }
 
+function sortByIdDesc(list){
+  return (list || []).slice().sort(function(a, b){ return (parseInt(b.id, 10) || 0) - (parseInt(a.id, 10) || 0); });
+}
+
 function loadAlgorithms(page){
   if(page) g_currentPage = page;
   var engine = document.getElementById('filterEngine').value;
@@ -452,18 +492,20 @@ function loadAlgorithms(page){
     var body = document.getElementById('algBody');
     body.innerHTML = '';
     var pageData = (res && res.pageData) ? res.pageData : {};
-    if(!res || res.code!==1000 || !(res.data||[]).length){
+    var rows = sortByIdDesc((res && res.data) ? res.data : []);
+    if(!res || res.code!==1000 || !rows.length){
       renderEmpty(true);
       renderPagination(document.getElementById('pagination'), pageData, loadAlgorithms);
       return;
     }
     renderEmpty(false);
-    res.data.forEach(function(a){
+    rows.forEach(function(a){
       var tr = document.createElement('tr');
       var engineName = a.inference_engine==='yolo_pytorch'?'Yolo-PyTorch':(a.inference_engine==='onnxruntime'?'OnnxRuntime':(a.inference_engine==='openvino'?'OpenVINO':a.inference_engine));
-      var typeDisp = ({yolo5:'YOLOv5',yolo8:'YOLOv8',yolo11:'YOLOv11',yolo26:'YOLO26'}[a.algorithm_type]) || a.algorithm_type;
+      var typeDisp = (typeLabelMap()[a.algorithm_type]) || a.algorithm_type;
       var taskDisp = a.task_type?(a.task_type.charAt(0).toUpperCase()+a.task_type.slice(1)):'-';
       var deviceDisp = ({cpu:'CPU',cuda:'CUDA',gpu:'GPU'}[a.device]) || (a.device||'-');
+      var thrSub = (a.task_type==='reid') ? _t('sm_reid_crop','行人 crop') : ('conf '+a.conf_threshold.toFixed(2));
       var statusHtml = '';
       if(a.is_default===1) statusHtml += '<span class="tag tag-default">'+_t('sm_default','默认')+'</span> ';
       statusHtml += (a.state===1?'<span class="tag tag-on">'+_t('zone_enabled','启用')+'</span>':'<span class="tag tag-off">'+_t('zone_disabled','禁用')+'</span>');
@@ -471,7 +513,7 @@ function loadAlgorithms(page){
         +'<td class="alg-name-cell">'+escapeHtml(a.name)+'</td>'
         +'<td><div class="cell-stack"><span class="cell-main">'+escapeHtml(typeDisp)+'</span><span class="cell-sub">'+escapeHtml(taskDisp)+'</span></div></td>'
         +'<td><div class="cell-stack"><span class="cell-main">'+engineName+'</span><span class="cell-sub">'+escapeHtml(deviceDisp)+'</span></div></td>'
-        +'<td><div class="cell-stack"><span class="cell-main">'+a.input_width+'×'+a.input_height+'</span><span class="cell-sub">conf '+a.conf_threshold.toFixed(2)+'</span></div></td>'
+        +'<td><div class="cell-stack"><span class="cell-main">'+a.input_width+'×'+a.input_height+'</span><span class="cell-sub">'+escapeHtml(thrSub)+'</span></div></td>'
         +'<td>'+statusHtml+'</td>'
         +'<td><div class="alg-actions">'
           +'<button class="btn" onclick="editAlgorithm('+a.id+')">'+_t('btn_edit','编辑')+'</button>'
@@ -510,6 +552,7 @@ function editAlgorithm(id){
     document.getElementById('f_labels').value = Array.isArray(labels) ? labels.join(',') : '';
     document.getElementById('f_state').value = String(a.state);
     document.getElementById('f_is_default').value = String(a.is_default);
+    onTaskTypeChange();
     document.getElementById('probeResult').classList.remove('show');
     document.getElementById('algModal').classList.add('show');
   });
@@ -538,6 +581,7 @@ function openAddModal(){
   document.getElementById('f_labels').value = '';
   document.getElementById('f_state').value = '1';
   document.getElementById('f_is_default').value = '0';
+  onTaskTypeChange();
   document.getElementById('probeResult').classList.remove('show');
   document.getElementById('algModal').classList.add('show');
 }
@@ -612,7 +656,9 @@ function probeModel(){
   var box = document.getElementById('probeResult');
   box.classList.add('show');
   box.innerHTML = '<div class="row"><span>'+_t('index_loading','加载中...')+'</span></div>';
-  Api.post('/smallmodel/openProbe', {model_file: modelFile, engine: engine}).then(function(res){
+  var taskType = document.getElementById('f_task_type').value;
+  var algoType = document.getElementById('f_algorithm_type').value;
+  Api.post('/smallmodel/openProbe', {model_file: modelFile, engine: engine, task_type: taskType, algorithm_type: algoType}).then(function(res){
     if(res && res.code===1000 && res.data){
       var d = res.data;
       var html = '';
@@ -626,6 +672,7 @@ function probeModel(){
         document.getElementById('f_input_width').value = d.input_size_inferred[0];
         document.getElementById('f_input_height').value = d.input_size_inferred[1];
       }
+      if(d.embedding_dim) html += '<div class="row"><span>'+_t('sm_reid_embedding_dim','特征维度')+'</span><b>'+d.embedding_dim+'</b></div>';
       if(d.labels && d.labels.length){
         html += '<div class="row"><span>'+_t('sm_labels_count','类别数')+'</span><b>'+d.labels.length+'</b></div>';
         document.getElementById('f_labels').value = d.labels.join('\n');
