@@ -54,7 +54,7 @@ def _biz_to_dict(b, detail=False):
         "detector_model_name": b.detector_model.name if b.detector_model_id and b.detector_model else "",
         "target_labels": labels,
         "llm_id": b.llm_id,
-        "llm_name": b.llm.name if b.llm_id and b.llm else "",
+        "llm_name": ((b.llm.name or b.llm.model_name) if b.llm_id and b.llm else ""),
         "llm_prompt": b.llm_prompt or "",
         "llm_validate": b.llm_validate or "",
         "post_process": b.post_process or BizAlgorithmModel.POST_AREA,

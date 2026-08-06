@@ -123,6 +123,8 @@ urlpatterns = [
 
     # 报警管理
     path('alarm/index', AlarmView.index),
+    path('alarm/dashboard', AlarmView.dashboard),
+    path('alarm/openStats', AlarmView.api_openStats),
     path('alarm/openIndex', AnalysisView.alarm_openIndex),
     path('alarm/openDel', AnalysisView.alarm_openDel),
     path('alarm/openBatchDel', AnalysisView.alarm_openBatchDel),

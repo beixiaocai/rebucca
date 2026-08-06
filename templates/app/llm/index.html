@@ -167,6 +167,10 @@
           <label>{{ T.llm_model_name|default:'模型名称' }} <span class="req">*</span></label>
           <input type="text" class="llm-input" id="input_model_name" placeholder="{{ T.llm_input_model_name|default:'如 gpt-4o、qwen-vl-max' }}">
         </div>
+        <div class="llm-field">
+          <label>{{ T.llm_name|default:'名称' }}</label>
+          <input type="text" class="llm-input" id="input_name" placeholder="{{ T.llm_name_ph|default:'用于在业务算法中显示的名称，可留空（默认用模型名称）' }}">
+        </div>
       </div>
       <div class="llm-section">
         <div class="llm-section-title">{{ T.llm_section_api|default:'API 连接' }}</div>
@@ -246,6 +250,7 @@ function openAddModal() {
   document.getElementById('modalSub').textContent = _t('llm_modal_add_sub', '填写 OpenAI 兼容 API 连接信息');
   document.getElementById('input_code').value = currentCode;
   document.getElementById('input_model_name').value = '';
+  document.getElementById('input_name').value = '';
   document.getElementById('input_inference_tool').value = 'OpenAI';
   document.getElementById('input_api_url').value = '';
   document.getElementById('input_api_key').value = '';
@@ -264,6 +269,7 @@ function openEditModal(code) {
       var info = res.info;
       document.getElementById('input_code').value = info.code;
       document.getElementById('input_model_name').value = info.model_name || '';
+      document.getElementById('input_name').value = info.name || '';
       document.getElementById('input_inference_tool').value = 'OpenAI';
       document.getElementById('input_api_url').value = info.api_url || '';
       document.getElementById('input_api_key').value = info.api_key || '';
@@ -283,6 +289,7 @@ function closeLLMModal() {
 function submitLLMForm() {
   var payload = {
     code: currentCode,
+    name: (document.getElementById('input_name').value || '').trim(),
     model_name: document.getElementById('input_model_name').value.trim(),
     inference_tool: 'OpenAI',
     api_url: document.getElementById('input_api_url').value.trim(),

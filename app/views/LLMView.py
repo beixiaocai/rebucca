@@ -105,8 +105,10 @@ def api_openAdd(request):
             params = f_parsePostParams(request)
             g_logger.info("LLMView.openAdd() params:%s" % str(params))
             code = params.get("code", "").strip()
-            name = params.get("name", "").strip()
+            name = (params.get("name") or "").strip()
             model_name = params.get("model_name", "").strip()
+            if not name:
+                name = model_name
             api_url = params.get("api_url", "").strip()
             api_key = params.get("api_key", "").strip()
             timeout = int(params.get("timeout", 30))
@@ -162,8 +164,10 @@ def api_openEdit(request):
             params = f_parsePostParams(request)
             g_logger.info("LLMView.openEdit() params:%s" % str(params))
             code = params.get("code", "").strip()
-            name = params.get("name", "").strip()
+            name = (params.get("name") or "").strip()
             model_name = params.get("model_name", "").strip()
+            if not name:
+                name = model_name
             api_url = params.get("api_url", "").strip()
             api_key = params.get("api_key", "").strip()
             timeout = int(params.get("timeout", 30))

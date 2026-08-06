@@ -357,7 +357,8 @@ function fillSelects(){
   var ll = document.getElementById('f_llm');
   ll.innerHTML = '<option value="">'+_t('please_select','请选择')+'</option>';
   (g_options.llms||[]).forEach(function(m){
-    ll.innerHTML += '<option value="'+m.id+'">'+esc(m.name)+'</option>';
+    var label = m.name || m.model_name || (m.id ? ('#'+m.id) : '');
+    ll.innerHTML += '<option value="'+m.id+'">'+esc(label)+'</option>';
   });
 }
 
@@ -578,7 +579,20 @@ function openEdit(id){
       fillTargetSelect(m ? m.labels : [], r.target_labels || []);
     }
     onSmallModelChange();
-    document.getElementById('f_llm').value = r.llm_id || '';
+    (function(){
+      var llSel = document.getElementById('f_llm');
+      // 清理上次编辑时插入的“已禁用回显项”
+      Array.from(llSel.querySelectorAll('option[data-echo="1"]')).forEach(function(o){ o.remove(); });
+      // 若引用的 LLM 被禁用（不在启用列表中），补一个回显项，避免看起来像配置丢失
+      if (r.llm_id && !llSel.querySelector('option[value="'+r.llm_id+'"]')) {
+        var opt = document.createElement('option');
+        opt.value = r.llm_id;
+        opt.textContent = (r.llm_name || ('#'+r.llm_id)) + ' ['+_t('state_disabled','禁用')+']';
+        opt.setAttribute('data-echo','1');
+        llSel.appendChild(opt);
+      }
+      llSel.value = r.llm_id || '';
+    })();
     document.getElementById('f_llm_prompt').value = r.llm_prompt || '';
     document.getElementById('f_llm_validate').value = r.llm_validate || '';
     document.getElementById('f_post_process').value = r.post_process || 'AREA';

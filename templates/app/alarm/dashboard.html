@@ -1,0 +1,285 @@
+{% extends "app/base.html" %}
+{% load static %}
+
+{% block title %}{{ T.nav_alarm_stats|default:'统计看板' }} - {{ settings.name|default:"Rebucca" }}{% endblock %}
+{% block nav_alarm_stats %}active{% endblock %}
+{% block topbar_left %}
+<span class="topbar-title"> {{ T.nav_alarm_stats|default:'统计看板' }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="dashb-page">
+
+  <!-- ============== 4 个统计卡 ============== -->
+  <div class="stat-grid">
+    <a href="/alarm/index" class="stat-card">
+      <div class="stat-label">{{ T.stats_today|default:'今日报警' }}</div>
+      <div class="stat-value"><span id="statToday">--</span><span class="stat-unit">{{ T.stats_unit|default:'条' }}</span></div>
+      <div class="stat-foot">{{ T.stats_today_foot|default:'当天触发' }}</div>
+    </a>
+    <a href="/alarm/index" class="stat-card">
+      <div class="stat-label">{{ T.stats_week|default:'近7天报警' }}</div>
+      <div class="stat-value"><span id="statWeek">--</span><span class="stat-unit">{{ T.stats_unit|default:'条' }}</span></div>
+      <div class="stat-foot">{{ T.stats_week_foot|default:'最近一周' }}</div>
+    </a>
+    <a href="/alarm/index" class="stat-card">
+      <div class="stat-label">{{ T.stats_total|default:'累计报警' }}</div>
+      <div class="stat-value"><span id="statTotal">--</span><span class="stat-unit">{{ T.stats_unit|default:'条' }}</span></div>
+      <div class="stat-foot">{{ T.stats_total_foot|default:'历史总数' }}</div>
+    </a>
+    <a href="/stream/index" class="stat-card">
+      <div class="stat-label">{{ T.stats_streams|default:'涉及摄像头' }}</div>
+      <div class="stat-value"><span id="statStreams">--</span><span class="stat-unit">{{ T.stat_unit_stream|default:'路' }}</span></div>
+      <div class="stat-foot">{{ T.stats_streams_foot|default:'产生过报警' }}</div>
+    </a>
+  </div>
+
+  <!-- ============== 报警趋势 ============== -->
+  <div class="card" style="margin-top:16px">
+    <div class="card-header">
+      <span class="card-title">{{ T.stats_trend|default:'报警趋势' }}</span>
+      <span class="card-extra">
+        <span class="range-switch">
+          <button type="button" class="range-btn active" data-days="7">{{ T.stats_range_7|default:'近7天' }}</button>
+          <button type="button" class="range-btn" data-days="30">{{ T.stats_range_30|default:'近30天' }}</button>
+        </span>
+      </span>
+    </div>
+    <div class="card-body">
+      <div id="trendChart" class="chart-box"></div>
+      <div id="trendEmpty" class="empty" style="display:none;">{{ T.stats_no_data|default:'暂无报警数据' }}</div>
+    </div>
+  </div>
+
+  <!-- ============== 类型分布 + TOP摄像头 ============== -->
+  <div class="grid-2col">
+    <div class="card">
+      <div class="card-header"><span class="card-title">{{ T.stats_by_type|default:'报警类型分布' }}</span></div>
+      <div class="card-body">
+        <div class="pie-wrap">
+          <div id="pieChart" class="pie-svg"></div>
+          <div id="pieLegend" class="pie-legend"></div>
+        </div>
+        <div id="pieEmpty" class="empty" style="display:none;">{{ T.stats_no_data|default:'暂无报警数据' }}</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">{{ T.stats_top_streams|default:'报警 TOP 摄像头' }}</span></div>
+      <div class="card-body">
+        <div id="topList"></div>
+        <div id="topEmpty" class="empty" style="display:none;">{{ T.stats_no_data|default:'暂无报警数据' }}</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ===== 页面级样式（图表/图例/切换/空态）；卡片/按钮/统计卡/进度条复用 style.css 全局类 ===== */
+.dashb-page { max-width: 1400px; margin: 0 auto; }
+.stat-foot { margin-top: 8px; font-size: 12px; color: #9ca3af; }
+.grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+@media (max-width: 900px) { .grid-2col { grid-template-columns: 1fr; } }
+.card-extra { display: inline-flex; align-items: center; gap: 8px; }
+
+/* 范围切换 */
+.range-switch { display: inline-flex; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; }
+.range-btn { padding: 5px 12px; font-size: 12px; background: #fff; color: #64748b; border: none; cursor: pointer; transition: .15s; }
+.range-btn + .range-btn { border-left: 1px solid #e2e8f0; }
+.range-btn:hover { color: #169F85; }
+.range-btn.active { background: #169F85; color: #fff; }
+
+/* 折线图 */
+.chart-box { width: 100%; height: 260px; }
+.chart-svg { width: 100%; height: 100%; display: block; }
+.grid-line { stroke: #eef2f5; stroke-width: 1; }
+.axis-text { font-size: 11px; fill: #9ca3af; font-family: 'Consolas','Courier New',monospace; }
+.trend-line { fill: none; stroke: #169F85; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.dot { fill: #fff; stroke: #169F85; stroke-width: 2; }
+
+/* 饼图 */
+.pie-wrap { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.pie-svg { width: 180px; height: 180px; flex-shrink: 0; }
+.pie-svg-el { width: 100%; height: 100%; display: block; }
+.pie-slice { stroke: #fff; stroke-width: 1.5; }
+.pie-legend { flex: 1; min-width: 180px; }
+.legend-item { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 13px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.legend-name { color: #475569; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.legend-val { color: #1f2937; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* TOP 摄像头 */
+.top-item { margin-bottom: 14px; }
+.top-item:last-child { margin-bottom: 0; }
+.top-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.top-rank { width: 20px; height: 20px; border-radius: 5px; background: #f0f9f6; color: #169F85; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.top-item:nth-child(-n+3) .top-rank { background: #169F85; color: #fff; }
+.top-name { font-size: 13px; color: #334155; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.top-count { font-size: 13px; font-weight: 600; color: #1f2937; font-variant-numeric: tabular-nums; }
+.top-bar { height: 6px; }
+
+.empty { padding: 40px 0; text-align: center; color: #9ca3af; font-size: 13px; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var PALETTE = ['#169F85', '#14b89a', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444', '#0ea5e9', '#64748b'];
+var g_days = 7;
+
+function _t(k, d) { return (window.T && window.T[k]) || d; }
+function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+
+/* y 轴上限取一个“好看”的整数 */
+function niceCeil(v) {
+  if (v <= 1) return 1;
+  if (v <= 5) return 5;
+  if (v <= 10) return 10;
+  var p = Math.pow(10, Math.floor(Math.log10(v)));
+  var r = v / p;
+  var m = r <= 1 ? 1 : (r <= 2 ? 2 : (r <= 5 ? 5 : 10));
+  return m * p;
+}
+
+/* ===== 折线图 ===== */
+function renderTrend(trend) {
+  var box = document.getElementById('trendChart');
+  var empty = document.getElementById('trendEmpty');
+  trend = trend || [];
+  var total = trend.reduce(function (s, p) { return s + (p.count || 0); }, 0);
+  if (!trend.length || total === 0) { box.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  var W = 720, H = 240, PL = 42, PR = 18, PT = 18, PB = 30;
+  var iw = W - PL - PR, ih = H - PT - PB;
+  var max = 0;
+  trend.forEach(function (p) { if (p.count > max) max = p.count; });
+  var yMax = niceCeil(max);
+  var n = trend.length;
+  function x(i) { return PL + (n === 1 ? iw / 2 : iw * i / (n - 1)); }
+  function y(v) { return PT + ih - (ih * v / yMax); }
+
+  var grid = '';
+  var ticks = 4;
+  for (var g = 0; g <= ticks; g++) {
+    var gv = yMax * g / ticks;
+    var gy = y(gv);
+    grid += '<line x1="' + PL + '" y1="' + gy + '" x2="' + (W - PR) + '" y2="' + gy + '" class="grid-line"/>';
+    grid += '<text x="' + (PL - 8) + '" y="' + (gy + 4) + '" class="axis-text" text-anchor="end">' + Math.round(gv) + '</text>';
+  }
+
+  var pts = trend.map(function (p, i) { return [x(i), y(p.count)]; });
+  var dLine = pts.map(function (p, i) { return (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' ');
+  var dArea = dLine + ' L' + pts[pts.length - 1][0].toFixed(1) + ' ' + (PT + ih) + ' L' + pts[0][0].toFixed(1) + ' ' + (PT + ih) + ' Z';
+
+  var dots = '';
+  pts.forEach(function (p, i) {
+    dots += '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="3.5" class="dot"><title>' + esc(trend[i].full) + ' · ' + trend[i].count + '</title></circle>';
+  });
+
+  var labelEvery = n <= 7 ? 1 : (n <= 15 ? 2 : 3);
+  var labels = '';
+  trend.forEach(function (p, i) {
+    if (i % labelEvery === 0 || i === n - 1) {
+      labels += '<text x="' + x(i).toFixed(1) + '" y="' + (H - 8) + '" class="axis-text" text-anchor="middle">' + esc(p.date) + '</text>';
+    }
+  });
+
+  box.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="chart-svg" preserveAspectRatio="none">'
+    + '<defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1">'
+    + '<stop offset="0" stop-color="#169F85" stop-opacity=".28"/><stop offset="1" stop-color="#169F85" stop-opacity=".02"/>'
+    + '</linearGradient></defs>'
+    + grid
+    + '<path d="' + dArea + '" fill="url(#ag)"/>'
+    + '<path d="' + dLine + '" class="trend-line"/>'
+    + dots + labels
+    + '</svg>';
+}
+
+/* ===== 饼图 ===== */
+function renderPie(list) {
+  var box = document.getElementById('pieChart');
+  var legend = document.getElementById('pieLegend');
+  var empty = document.getElementById('pieEmpty');
+  list = list || [];
+  var total = list.reduce(function (s, p) { return s + (p.count || 0); }, 0);
+  if (!list.length || total === 0) { box.innerHTML = ''; legend.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  var cx = 90, cy = 90, r = 80, a0 = -Math.PI / 2, acc = 0, paths = '';
+  list.forEach(function (p, i) {
+    var frac = p.count / total;
+    var a1 = a0 + acc * 2 * Math.PI;
+    var a2 = a0 + (acc + frac) * 2 * Math.PI;
+    acc += frac;
+    var color = PALETTE[i % PALETTE.length];
+    if (frac >= 0.99999) {
+      paths += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="' + color + '"><title>' + esc(p.name) + ' ' + p.count + '</title></circle>';
+    } else {
+      var large = frac > 0.5 ? 1 : 0;
+      var x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1);
+      var x2 = cx + r * Math.cos(a2), y2 = cy + r * Math.sin(a2);
+      paths += '<path d="M' + cx + ' ' + cy + ' L' + x1.toFixed(2) + ' ' + y1.toFixed(2) + ' A' + r + ' ' + r + ' 0 ' + large + ' 1 ' + x2.toFixed(2) + ' ' + y2.toFixed(2) + ' Z" fill="' + color + '" class="pie-slice"><title>' + esc(p.name) + ' ' + p.count + '</title></path>';
+    }
+  });
+  box.innerHTML = '<svg viewBox="0 0 180 180" class="pie-svg-el">' + paths + '</svg>';
+
+  legend.innerHTML = list.map(function (p, i) {
+    var pct = (p.count / total * 100).toFixed(1);
+    return '<div class="legend-item"><span class="legend-dot" style="background:' + PALETTE[i % PALETTE.length] + '"></span>'
+      + '<span class="legend-name">' + esc(p.name) + '</span>'
+      + '<span class="legend-val">' + p.count + ' · ' + pct + '%</span></div>';
+  }).join('');
+}
+
+/* ===== TOP 摄像头 ===== */
+function renderTop(list) {
+  var box = document.getElementById('topList');
+  var empty = document.getElementById('topEmpty');
+  list = list || [];
+  if (!list.length) { box.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  var max = 0;
+  list.forEach(function (p) { if (p.count > max) max = p.count; });
+  box.innerHTML = list.map(function (p, i) {
+    var w = max > 0 ? (p.count / max * 100) : 0;
+    return '<div class="top-item">'
+      + '<div class="top-head"><span class="top-rank">' + (i + 1) + '</span>'
+      + '<span class="top-name" title="' + esc(p.name) + '">' + esc(p.name) + '</span>'
+      + '<span class="top-count">' + p.count + '</span></div>'
+      + '<div class="progress top-bar"><div class="progress-bar" style="width:' + w.toFixed(1) + '%"></div></div>'
+      + '</div>';
+  }).join('');
+}
+
+/* ===== 加载 ===== */
+function loadStats(days) {
+  if (days) g_days = days;
+  Api.get('/alarm/openStats', { days: g_days }).then(function (res) {
+    if (res.code !== 1000) { showToast(res.msg || _t('msg_failed', '加载失败'), 'error'); return; }
+    var d = res.data || {};
+    document.getElementById('statToday').textContent = d.today || 0;
+    document.getElementById('statWeek').textContent = d.week || 0;
+    document.getElementById('statTotal').textContent = d.total || 0;
+    document.getElementById('statStreams').textContent = d.stream_count || 0;
+    renderTrend(d.trend || []);
+    renderPie(d.by_type || []);
+    renderTop(d.top_streams || []);
+  });
+}
+
+document.querySelectorAll('.range-btn').forEach(function (b) {
+  b.addEventListener('click', function () {
+    document.querySelectorAll('.range-btn').forEach(function (x) { x.classList.remove('active'); });
+    this.classList.add('active');
+    loadStats(parseInt(this.getAttribute('data-days'), 10));
+  });
+});
+
+loadStats(7);
+/* 每 30 秒自动刷新 */
+setInterval(function () { loadStats(g_days); }, 30000);
+</script>
+{% endblock %}
