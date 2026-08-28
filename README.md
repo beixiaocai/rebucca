@@ -10,10 +10,6 @@
 | 作者 | 北小菜 · [哔哩哔哩](https://space.bilibili.com/487906612) |
 
 **开源协议：** MIT License，可自由商用。详见 `LICENSE`。
-* Rebucca 智能视频监控交流群
-<p align="center">
-<img src="static/images/rebucca_qq.jpg" width="300" alt="Rebucca 智能视频监控交流群">
-</p>
 
 ---
 
