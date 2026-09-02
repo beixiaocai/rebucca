@@ -1,15 +1,15 @@
 # Rebucca
 
-多路视频接入与智能布控分析平台。支持 GB28181 / RTSP、YOLO 小模型检测、OpenAI 兼容大模型复核、多边形布控与结构化报警。
-
-| 链接 | |
-|------|--|
-| 官网 | https://www.yuturuishi.com |
-| Gitee | https://gitee.com/Vanishi/rebucca |
-| GitHub | https://github.com/beixiaocai/rebucca |
-| 作者 | 北小菜 · [哔哩哔哩](https://space.bilibili.com/487906612) |
+**语言 / Language：** [简体中文](README.md) | [English](README_en.md)
 
 **开源协议：** MIT License，可自由商用。详见 `LICENSE`。
+
+- 官网：https://www.yuturuishi.com
+- 微信：yuturuishi
+- gitee开源地址：https://gitee.com/Vanishi/rebucca
+- github开源地址：https://github.com/beixiaocai/rebucca
+
+- Rebucca是多路视频接入与智能布控分析平台。支持 GB28181 / RTSP、YOLO 小模型检测、OpenAI 兼容大模型复核、多边形布控与结构化报警。
 
 ---
 
@@ -112,7 +112,20 @@ python manage.py runserver 0.0.0.0:10001
 
 ## 更新日志
 
+### v1.004
+- 2026/09/02
+- **修复布控报警快照识别框位置异常（重要）**
+  - 共享推理池链路（默认开启）发送帧前会将长边降采样至 ≤1280 以节省传输，推理返回的检测框 / 关键点 / 分割多边形坐标属于缩放后小图坐标系，此前未经还原直接画到原始分辨率快照上，导致报警管理图片中识别框整体偏左上、尺寸偏小，分辨率越高错位越明显。
+  - 现已按缩放比例将检测结果坐标还原回原图坐标（`remote_detector.py`），未降采样时零开销直通；同时修正了区域命中判断（点在多边形内）使用错位坐标导致的潜在误报 / 漏报。
+- **修复编辑用户提交报错（`int() argument ... not 'NoneType'`）**
+  - 数据库返回的 `is_active` 为布尔值，前端直接赋给状态下拉框导致值匹配失败，提交时序列化为 `null`，后端 `int(None)` 抛出原始异常。
+  - 前后端双重修复：前端将状态归一化为 `'1' / '0'`（`user/index.html`）；后端对 `is_active` 做布尔 / 字符串兼容归一化，`id` 缺失时返回业务错误提示（`UserView.py`）。
+- **修复业务算法编辑弹框不回显已选检测目标**
+  - 打开编辑弹框时，已选检测目标先被正确填充，但随后触发的 `onSmallModelChange()` 以空选中集重绘下拉框，把回显项全部清空，表现为「选了多少项，打开编辑却一个都没选中」。
+  - 现改为保留当前已选项重绘（与检测+ReID 流程的 `onDetectorModelChange` 行为一致）；真实切换小模型时，不属于新模型标签列表的旧选中项仍会被自然过滤（`algorithm/index.html`）。
+
 ### v1.003
+- 2026/08/06
 - **业务算法选择大模型相关修复（重要）**
   - 大模型配置新增「名称」字段，可留空；新增 / 编辑时若名称为空，自动以「模型名称」兜底（`name = model_name`），避免大模型配置出现空名称。
   - 业务算法列表 / 编辑中，绑定大模型的显示名现在会回退到「模型名称」（`llm_name` 兜底 `name or model_name`），不再显示空白。

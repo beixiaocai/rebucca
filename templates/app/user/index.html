@@ -186,7 +186,8 @@ function openEditModal(id, username, email, isActive) {
     document.getElementById('u_password').value = '';
     document.getElementById('u_new_password').value = '';
     document.getElementById('u_re_password').value = '';
-    document.getElementById('u_is_active').value = isActive;
+    // 兼容后端返回布尔值 true/false 的情况，归一化为 select 的 '1'/'0'
+    document.getElementById('u_is_active').value = (isActive ? '1' : '0');
     document.getElementById('u_password_group').style.display = 'none';
     document.getElementById('u_new_password_group').style.display = '';
     document.getElementById('u_re_password_group').style.display = '';

@@ -92,8 +92,9 @@ class RemoteDetector(object):
         self._drainer.ensure_started()
         try:
             import cv2
-            frame = self._maybe_downscale(frame)
-            ok, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+            orig_h, orig_w = frame.shape[:2]
+            send = self._maybe_downscale(frame)
+            ok, buf = cv2.imencode(".jpg", send, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
             if not ok:
                 return []
             jpeg = buf.tobytes()
@@ -119,7 +120,56 @@ class RemoteDetector(object):
         resp = evt.get("resp") or {}
         if not resp.get("ok"):
             return []
-        return resp.get("detections") or []
+        detections = resp.get("detections") or []
+        self._rescale_detections(detections, orig_w, orig_h, send.shape[1], send.shape[0])
+        return detections
+
+    @staticmethod
+    def _rescale_detections(detections, orig_w, orig_h, sent_w, sent_h):
+        """若发送前做过降采样，把检测坐标从小图空间还原回原图空间。
+
+        否则框坐标会落在缩放图坐标系，画到原图快照上时位置偏左上、尺寸偏小，
+        导致报警管理图片中识别框位置异常。
+        """
+        if not detections or sent_w <= 0 or sent_h <= 0:
+            return
+        if sent_w == orig_w and sent_h == orig_h:
+            return
+        sx = float(orig_w) / float(sent_w)
+        sy = float(orig_h) / float(sent_h)
+        for d in detections:
+            if not isinstance(d, dict):
+                continue
+            b = d.get("box")
+            if b and len(b) == 4:
+                try:
+                    d["box"] = [int(round(float(b[0]) * sx)), int(round(float(b[1]) * sy)),
+                                int(round(float(b[2]) * sx)), int(round(float(b[3]) * sy))]
+                except Exception:
+                    pass
+            kp = d.get("keypoints")
+            if isinstance(kp, list):
+                fixed = []
+                for p in kp:
+                    try:
+                        if len(p) >= 3:
+                            fixed.append([float(p[0]) * sx, float(p[1]) * sy, float(p[2])])
+                        elif len(p) == 2:
+                            fixed.append([float(p[0]) * sx, float(p[1]) * sy])
+                        else:
+                            fixed.append(p)
+                    except Exception:
+                        fixed.append(p)
+                d["keypoints"] = fixed
+            poly = d.get("mask_polygon")
+            if isinstance(poly, list):
+                fixed = []
+                for p in poly:
+                    try:
+                        fixed.append([float(p[0]) * sx, float(p[1]) * sy])
+                    except Exception:
+                        fixed.append(p)
+                d["mask_polygon"] = fixed
 
     def _maybe_downscale(self, frame):
         try:

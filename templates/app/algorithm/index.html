@@ -453,7 +453,9 @@ function onSmallModelChange(){
     showModelHint(document.getElementById('smallModelHint'), m);
     return;
   }
-  fillTargetSelect(m ? m.labels : [], []);
+  // 保留当前已选中项：编辑回显后再次触发时不会清空已选目标；
+  // 切换小模型时，不属于新模型标签列表的旧选中项会被自然过滤
+  fillTargetSelect(m ? m.labels : [], getSelectedTargets());
   showModelHint(document.getElementById('smallModelHint'), m);
 }
 

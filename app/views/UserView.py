@@ -258,8 +258,11 @@ def api_openEdit(request):
                 email = params.get("email", "").strip()
                 new_password = params.get("new_password", "")
                 re_password = params.get("re_password", "")
+                # 兼容前端传布尔/null/字符串的情况，归一化后再转换，避免 int(None) 直接抛原始异常
+                if user_id is None:
+                    raise Exception(LANG_VIEWS_T(request, "msg_data_not_exist"))
+                is_active = 1 if is_active in (1, True, "1", "true", "True") else 0
                 user_id = int(user_id)
-                is_active = int(is_active)
 
                 if username == "":
                     raise Exception(LANG_VIEWS_T(request, "user_username_required"))

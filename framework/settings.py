@@ -21,8 +21,8 @@ import os
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROJECT_UA = "rebucca"
-PROJECT_BUILT = "rebucca built on 2026/08/06"
-PROJECT_VERSION = "1.003"
+PROJECT_BUILT = "rebucca built on 2026/09/02"
+PROJECT_VERSION = "1.004"
 PROJECT_FLAG = "rebucca" # rebucca
 PROJECT_ADMIN_START_TIMESTAMP = int(time.time()) # 软件启动时间戳（秒单位）
 

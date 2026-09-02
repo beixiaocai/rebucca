@@ -4,6 +4,8 @@
 .vscode/
 .qoder
 .qtcreator
+.workbuddy
+
 
 # Python
 __pycache__/*
