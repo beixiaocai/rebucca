@@ -998,7 +998,7 @@
         "biz_post_line_diff": "Qua vạch = báo ngay; đếm qua vạch = báo sau N người, có thuận/nghịch.",
         "biz_post_help": "Trợ giúp",
         "biz_post_help_title": "Hướng dẫn hậu xử lý",
-        "biz_post_help_sub": "6 loại hậu xử lý; xem mô tả từng loại",
+        "biz_post_help_sub": "7 loại hậu xử lý; xem mô tả từng loại",
         "biz_line_count_threshold": "Ngưỡng báo động đếm",
         "biz_line_count_threshold_hint": "Báo khi số lượt qua vạch đạt ngưỡng; 0 = không đếm hướng đó. Vẽ hình chữ nhật + đường hướng A→B.",
         "biz_forward_count": "Thuận (A→B)",
@@ -1061,6 +1061,13 @@
         "zone_ov_shared_infer": "Pool suy luận dùng chung · {n} worker",
         "alarm_auto_refresh": "Tự làm mới",
         "alarm_auto_refresh_unit": "giây",
-        "alarm_auto_refresh_sec_hint": "Khoảng làm mới (giây, 3–300)"
+        "alarm_auto_refresh_sec_hint": "Khoảng làm mới (giây, 3–300)",
+        "zone_density": "Ngưỡng mật độ",
+        "zone_absence": "Ngưỡng vắng mặt",
+        "biz_post_absence": "Phát hiện vắng mặt",
+        "biz_post_absence_hint": "Kích hoạt khi không có đối tượng nào khớp xuất hiện trong khu vực liên tục absence_threshold giây; cần cấu hình ngưỡng vắng mặt trong khu vực kiểm soát. Tự động kích hoạt lại khi đối tượng quay lại.",
+        "biz_post_absence_desc": "Kích động báo động khi không có đối tượng được phát hiện nào xuất hiện trong khu vực lâu hơn ngưỡng vắng mặt (giây). Ngược lại với báo động mật độ: mật độ là \"quá nhiều người\", vắng mặt là \"không có ai\". Phù hợp cho phòng máy, quầy thu ngân, chực trực và giám sát chổ làm việc.",
+        "ev_density": "Báo động mật độ",
+        "ev_absence": "Báo động vắng mặt"
     }
 }

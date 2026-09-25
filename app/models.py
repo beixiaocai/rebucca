@@ -200,6 +200,7 @@ class BizAlgorithmModel(models.Model):
     POST_DIRECTION = 'DIRECTION'  # 方向入侵：移动方向匹配设定方向
     POST_DENSITY = 'DENSITY'     # 密度报警：区域内目标数 >= 阈值
     POST_DWELL = 'DWELL'         # 滞留报警：在区域内停留 >= 阈值秒
+    POST_ABSENCE = 'ABSENCE'     # 离岗检测：区域内连续 >= 阈值秒无目标
     POST_CHOICES = (
         (POST_AREA, '区域入侵'),
         (POST_LINE_CROSS, '越线检测'),
@@ -207,6 +208,7 @@ class BizAlgorithmModel(models.Model):
         (POST_DIRECTION, '方向入侵'),
         (POST_DENSITY, '密度报警'),
         (POST_DWELL, '滞留报警'),
+        (POST_ABSENCE, '离岗检测'),
     )
 
     name = models.CharField(max_length=100, verbose_name='算法名称')
@@ -275,6 +277,8 @@ class ZoneModel(models.Model):
     line_b = models.TextField(default='', verbose_name='警戒线端点B')  # JSON: [x,y] 归一化
     # DENSITY 后处理：密度报警阈值(区域内目标数)
     density_threshold = models.IntegerField(default=0, verbose_name='密度阈值')  # 0=不检测密度
+    # ABSENCE 后处理：离岗检测阈值(区域内连续无目标秒数)
+    absence_threshold = models.IntegerField(default=0, verbose_name='离岗阈值(秒)')  # 0=不检测离岗
     algorithms = models.ManyToManyField('BizAlgorithmModel', blank=True, related_name='zones', verbose_name='分析算法')
     create_time = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     last_update_time = models.DateTimeField(auto_now_add=True, verbose_name='更新时间')

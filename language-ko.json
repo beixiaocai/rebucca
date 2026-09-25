@@ -998,7 +998,7 @@
         "biz_post_line_diff": "Line cross = instant alarm; line count = alarm after N people, with forward/reverse totals.",
         "biz_post_help": "Help",
         "biz_post_help_title": "Post-process guide",
-        "biz_post_help_sub": "6 post-process types; see each description for details",
+        "biz_post_help_sub": "7 post-process types; see each description for details",
         "biz_line_count_threshold": "Count alarm threshold",
         "biz_line_count_threshold_hint": "Alarm when line-cross count reaches threshold; 0 disables that direction. Draw rectangle + direction line A→B.",
         "biz_forward_count": "Forward (A→B)",
@@ -1061,6 +1061,13 @@
         "zone_ov_shared_infer": "공유 추론 풀 · {n} worker",
         "alarm_auto_refresh": "자동 새로고침",
         "alarm_auto_refresh_unit": "초",
-        "alarm_auto_refresh_sec_hint": "새로고침 간격(초, 3–300)"
+        "alarm_auto_refresh_sec_hint": "새로고침 간격(초, 3–300)",
+        "zone_density": "밀도 임계값",
+        "zone_absence": "부재 임계값",
+        "biz_post_absence": "부재 감지",
+        "biz_post_absence_hint": "구역에 일치하는 객체가 absence_threshold초 연속으로 나타나지 않으면 트리거됩니다. 제어 구역에서 부재 임계값을 설정하세요. 객체가 돌아오면 자동으로 재무장됩니다.",
+        "biz_post_absence_desc": "구역에서 감지된 객체가 부재 임계값(초)보다 오래 나타나지 않으면 경보를 발생시킵니다. 밀도 경보와 반대입니다: 밀도는 \"사람이 너무 많음\", 부재는 \"아무도 없음\"을 의미합니다. 서버실, 계산대, 당직 초소, 작업자 모니터링에 적합합니다.",
+        "ev_density": "밀도 경보",
+        "ev_absence": "부재 감지 경보"
     }
 }

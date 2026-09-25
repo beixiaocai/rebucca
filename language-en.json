@@ -999,7 +999,7 @@
         "biz_post_line_diff": "Line cross = instant alarm; line count = alarm after N people, with forward/reverse totals.",
         "biz_post_help": "Help",
         "biz_post_help_title": "Post-process guide",
-        "biz_post_help_sub": "6 post-process types; see each description for details",
+        "biz_post_help_sub": "7 post-process types; see each description for details",
         "biz_line_count_threshold": "Count alarm threshold",
         "biz_line_count_threshold_hint": "Alarm when line-cross count reaches threshold; 0 disables that direction. Draw rectangle + direction line A→B.",
         "biz_forward_count": "Forward (A→B)",
@@ -1061,6 +1061,13 @@
         "zone_snap_refresh_failed": "Refresh failed; keeping current image",
         "alarm_auto_refresh": "Auto refresh",
         "alarm_auto_refresh_unit": "sec",
-        "alarm_auto_refresh_sec_hint": "Refresh interval (seconds, 3–300)"
+        "alarm_auto_refresh_sec_hint": "Refresh interval (seconds, 3–300)",
+        "zone_density": "Density Threshold",
+        "zone_absence": "Absence Threshold",
+        "biz_post_absence": "Absence Detection",
+        "biz_post_absence_hint": "Triggers when no matching target appears in the zone for absence_threshold consecutive seconds; configure the absence threshold on the control zone. Re-arms automatically when a target returns.",
+        "biz_post_absence_desc": "Raises an alarm when no detected target appears in the zone for longer than the absence threshold (seconds). The opposite of density alarm: density means \"too many people\", absence means \"nobody there\". Ideal for equipment rooms, cashier desks, duty posts and workstation monitoring.",
+        "ev_density": "Density Alarm",
+        "ev_absence": "Absence Alarm"
     }
 }

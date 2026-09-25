@@ -120,6 +120,9 @@ class CameraPipeline(object):
         self._density_fired = set()     # (zone_id, biz_id) 本次密度已报警（按算法独立，目标数降回前不重复）
         self._direction_fired = set()   # (track_id, zone_id, biz_id) 方向报警去重
         self._area_alarm_last_ts = {}   # (track_id, zone_id, biz_id) -> ts 区域入侵持续报警节流
+        # 离岗检测运行时状态
+        self._zone_last_present_ts = {}  # (zone_id, biz_id) -> 最近一次区域内出现匹配目标的 ts
+        self._absence_fired = set()      # (zone_id, biz_id) 本次离岗已报警（回岗后自动重新武装）
         self._force_detect = False        # 有区域类布控时持续跑检测，避免 MOG2 门控漏报
         self._zone_config_warned = set()
         self._start_ts = 0.0
@@ -137,9 +140,9 @@ class CameraPipeline(object):
                 post = r.get("post_process") or ""
                 if flow not in (1, 3, 4):
                     continue
-                if post in ("AREA", "DWELL", "DENSITY", "LINE_CROSS", "LINE_COUNT", "DIRECTION"):
+                if post in ("AREA", "DWELL", "DENSITY", "LINE_CROSS", "LINE_COUNT", "DIRECTION", "ABSENCE"):
                     self._force_detect = True
-                    if len(coords) < 3 and post in ("AREA", "DWELL", "DENSITY"):
+                    if len(coords) < 3 and post in ("AREA", "DWELL", "DENSITY", "ABSENCE"):
                         key = (zid, post)
                         if key not in self._zone_config_warned:
                             self._zone_config_warned.add(key)
@@ -172,6 +175,8 @@ class CameraPipeline(object):
         self._density_fired = set()
         self._direction_fired = set()
         self._area_alarm_last_ts = {}
+        self._zone_last_present_ts = {}
+        self._absence_fired = set()
         try:
             self._tracker.reset()
         except Exception:
@@ -794,6 +799,57 @@ class CameraPipeline(object):
                 ):
                     self._density_fired.add((zid, biz_id))
 
+        # —— ABSENCE 离岗检测（区域级，每帧检查）：区域内连续 absence_threshold 秒
+        #    无匹配目标则报警；目标回岗后自动重新武装，可再次触发 ——
+        from app.analysis.biz_rules import track_matches_absence_rule
+        for z in self.zone_polygons:
+            zid = z.get("id")
+            absence_rules = [r for r in (z.get("biz_algorithms") or [])
+                             if r.get("post_process") == "ABSENCE" and int(r.get("flow_type") or 0) in (1, 3, 4)]
+            if not absence_rules:
+                continue
+            coords = self._scale_zone(z.get("coords", []), w, h)
+            if not coords or len(coords) < 3:
+                continue
+            for ar in absence_rules:
+                biz_id = ar.get("id")
+                key = (zid, biz_id)
+                present = False
+                for tr in active:
+                    box = tr["box"]
+                    cx = (box[0] + box[2]) / 2
+                    cy = (box[1] + box[3]) / 2
+                    if not self._point_in_polygon((cx, cy), coords):
+                        continue
+                    if track_matches_absence_rule(tr, ar):
+                        present = True
+                        break
+                if present:
+                    # 有人在场：刷新在场时间戳，并重新武装报警
+                    self._zone_last_present_ts[key] = now
+                    self._absence_fired.discard(key)
+                    continue
+                threshold = int(z.get("absence_threshold", 0))
+                if not threshold:
+                    continue
+                last_present = self._zone_last_present_ts.get(key)
+                if last_present is None:
+                    # 首次观测：从当前时刻起算离岗计时
+                    self._zone_last_present_ts[key] = now
+                    continue
+                gone = now - last_present
+                if gone < threshold:
+                    continue
+                if key in self._absence_fired:
+                    continue  # 本次离岗已报过，回岗后才会重新触发
+                tr_stub = {"label": "—", "track_id": 0, "absence_seconds": gone}
+                if self._emit_biz_alarm(
+                    "absence", frame, tr_stub, z, ar,
+                    track_id=0, zone_id=zid, box=None, now=now,
+                    absence_seconds=gone,
+                ):
+                    self._absence_fired.add(key)
+
         for tid in list(self._last_zone_state.keys()):
             if tid not in cur_state:
                 self._last_zone_state.pop(tid, None)
@@ -914,17 +970,18 @@ class CameraPipeline(object):
                     cv2.fillPoly(overlay, [pts], (22, 159, 133))
                     cv2.addWeighted(overlay, 0.18, img, 0.82, 0, img)
                     cv2.polylines(img, [pts], True, (22, 159, 133), 2)
-            # 画检测框 + 标签
+            # 画检测框 + 标签（区域级报警如密度/离岗无目标框，跳过绘制）
             box = track.get("box") or [0, 0, 0, 0]
             x1, y1, x2, y2 = int(box[0]), int(box[1]), int(box[2]), int(box[3])
-            cv2.rectangle(img, (x1, y1), (x2, y2), (220, 38, 38), 2)
-            label = str(track.get("label") or "")
-            score = track.get("score")
-            txt = label + (" %.2f" % score if isinstance(score, (int, float)) else "")
-            (tw, th), _ = cv2.getTextSize(txt, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-            ty = max(0, y1 - 6)
-            cv2.rectangle(img, (x1, max(0, ty - th - 4)), (x1 + tw + 6, ty + 2), (220, 38, 38), -1)
-            cv2.putText(img, txt, (x1 + 3, ty - 2), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+            if x2 > x1 and y2 > y1:
+                cv2.rectangle(img, (x1, y1), (x2, y2), (220, 38, 38), 2)
+                label = str(track.get("label") or "")
+                score = track.get("score")
+                txt = label + (" %.2f" % score if isinstance(score, (int, float)) else "")
+                (tw, th), _ = cv2.getTextSize(txt, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+                ty = max(0, y1 - 6)
+                cv2.rectangle(img, (x1, max(0, ty - th - 4)), (x1 + tw + 6, ty + 2), (220, 38, 38), -1)
+                cv2.putText(img, txt, (x1 + 3, ty - 2), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
             # 事件类型角标
             tag = event_type == "loiter" and "LOITER" or "ALARM"
             cv2.rectangle(img, (w - 90, 6), (w - 6, 26), (220, 38, 38), -1)

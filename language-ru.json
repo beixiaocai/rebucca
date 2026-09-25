@@ -998,7 +998,7 @@
         "biz_post_line_diff": "Line cross = instant alarm; line count = alarm after N people, with forward/reverse totals.",
         "biz_post_help": "Help",
         "biz_post_help_title": "Post-process guide",
-        "biz_post_help_sub": "6 post-process types; see each description for details",
+        "biz_post_help_sub": "7 post-process types; see each description for details",
         "biz_line_count_threshold": "Count alarm threshold",
         "biz_line_count_threshold_hint": "Alarm when line-cross count reaches threshold; 0 disables that direction. Draw rectangle + direction line A→B.",
         "biz_forward_count": "Forward (A→B)",
@@ -1061,6 +1061,13 @@
         "zone_ov_shared_infer": "Общий пул инференса · {n} worker",
         "alarm_auto_refresh": "Автообновление",
         "alarm_auto_refresh_unit": "с",
-        "alarm_auto_refresh_sec_hint": "Интервал обновления (сек, 3–300)"
+        "alarm_auto_refresh_sec_hint": "Интервал обновления (сек, 3–300)",
+        "zone_density": "Порог плотности",
+        "zone_absence": "Порог отсутствия",
+        "biz_post_absence": "Обнаружение отсутствия",
+        "biz_post_absence_hint": "Срабатывает, если в зоне отсутствуют подходящие объекты в течение absence_threshold секунд подряд; настройте порог отсутствия в зоне контроля. Автоматически перевзводится при возвращении объекта.",
+        "biz_post_absence_desc": "Подаёт тревогу, если в зоне контроля дольше порога отсутствия (секунды) не появляется ни один обнаруженный объект. Противоположность тревоге плотности: плотность — «слишком много людей», отсутствие — «никого нет». Подходит для серверных, касс, постов охраны и контроля присутствия на рабочих местах.",
+        "ev_density": "Тревога плотности",
+        "ev_absence": "Тревога отсутствия"
     }
 }

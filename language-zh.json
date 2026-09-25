@@ -644,7 +644,7 @@
         "biz_post_line_diff": "与越线检测的区别：越线检测是「过线立刻报」；越线计数是「累计到 N 人才报」，并可分别统计正向/逆向。",
         "biz_post_help": "说明",
         "biz_post_help_title": "后处理方案说明",
-        "biz_post_help_sub": "共 6 种后处理，按场景选择；详细说明见各项描述",
+        "biz_post_help_sub": "共 7 种后处理，按场景选择；详细说明见各项描述",
         "biz_line_count_threshold": "计数报警阈值",
         "biz_line_count_threshold_hint": "累计过线人数达到阈值时触发报警；0 表示该方向不计数报警。布控需绘制矩形区域 + 方向线 A→B 定义正向。",
         "biz_forward_count": "正向 (A→B)",
@@ -1064,6 +1064,15 @@
         "sysset_confirm_restart_app": "确定重启软件吗？",
         "sysset_confirm_restart_os": "确定重启操作系统吗？",
         "toast_transcode_not_enabled": "该视频未启用转码，请先在编辑中开启转码开关",
-        "upload_xlsx_format_incorrect": "xlsx 文件格式不正确"
+        "upload_xlsx_format_incorrect": "xlsx 文件格式不正确",
+        "zone_density": "密度阈值",
+        "zone_absence": "离岗阈值",
+        "biz_post_absence": "离岗检测",
+        "biz_post_absence_hint": "区域内连续 absence_threshold 秒无匹配目标触发，需在布控区域配置离岗阈值；目标回岗后自动重新武装",
+        "biz_post_absence_desc": "布控区域内连续超过离岗阈值（秒）没有出现检测目标时报警。与密度报警相反：密度是「人太多」，离岗是「没人」。适用于机房值守、收银台、值班岗、工位在岗监测等场景。",
+        "ev_density": "密度报警",
+        "ev_absence": "离岗检测告警",
+        "zone_state_disabled": "区域已禁用",
+        "zone_state_enabled": "区域已启用"
     }
 }

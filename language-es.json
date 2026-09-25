@@ -998,7 +998,7 @@
         "biz_post_line_diff": "Line cross = instant alarm; line count = alarm after N people, with forward/reverse totals.",
         "biz_post_help": "Help",
         "biz_post_help_title": "Post-process guide",
-        "biz_post_help_sub": "6 post-process types; see each description for details",
+        "biz_post_help_sub": "7 post-process types; see each description for details",
         "biz_line_count_threshold": "Count alarm threshold",
         "biz_line_count_threshold_hint": "Alarm when line-cross count reaches threshold; 0 disables that direction. Draw rectangle + direction line A→B.",
         "biz_forward_count": "Forward (A→B)",
@@ -1061,6 +1061,13 @@
         "zone_ov_shared_infer": "Pool de inferencia compartido · {n} worker",
         "alarm_auto_refresh": "Auto-actualizar",
         "alarm_auto_refresh_unit": "s",
-        "alarm_auto_refresh_sec_hint": "Intervalo de actualización (s, 3–300)"
+        "alarm_auto_refresh_sec_hint": "Intervalo de actualización (s, 3–300)",
+        "zone_density": "Umbral de densidad",
+        "zone_absence": "Umbral de ausencia",
+        "biz_post_absence": "Detección de ausencia",
+        "biz_post_absence_hint": "Se activa cuando no aparece ningún objetivo coincidente en la zona durante absence_threshold segundos seguidos; configure el umbral de ausencia en la zona de control. Se rearma automáticamente cuando el objetivo regresa.",
+        "biz_post_absence_desc": "Genera una alarma cuando no aparece ningún objetivo detectado en la zona durante más tiempo que el umbral de ausencia (segundos). Lo contrario de la alarma de densidad: densidad significa \"demasiada gente\", ausencia significa \"no hay nadie\". Ideal para salas de servidores, cajas, puestos de guardia y monitoreo de puestos de trabajo.",
+        "ev_density": "Alarma de densidad",
+        "ev_absence": "Alarma de ausencia"
     }
 }

@@ -394,6 +394,7 @@ class AnalysisManager(object):
                     "line_a": line_a,
                     "line_b": line_b,
                     "density_threshold": int(getattr(z, "density_threshold", 0) or 0),
+                    "absence_threshold": int(getattr(z, "absence_threshold", 0) or 0),
                     "algorithm_ids": biz_ids,
                     "biz_algorithms": biz_list,
                     "small_model_ids": sorted(small_ids),

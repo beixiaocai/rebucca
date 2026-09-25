@@ -202,6 +202,7 @@ select.biz-multi-select option:checked{background:#169F85;color:#fff;}
             <option value="DIRECTION">{{ T.biz_post_direction|default:'方向入侵' }}</option>
               <option value="DENSITY">{{ T.biz_post_density|default:'密度报警' }}</option>
               <option value="DWELL">{{ T.biz_post_dwell|default:'滞留报警' }}</option>
+              <option value="ABSENCE">{{ T.biz_post_absence|default:'离岗检测' }}</option>
             </select>
             <button type="button" class="btn" style="white-space:nowrap;" onclick="openPostHelp()">？{{ T.biz_post_help|default:'说明' }}</button>
           </div>
@@ -268,7 +269,7 @@ select.biz-multi-select option:checked{background:#169F85;color:#fff;}
     <div class="biz-modal-head">
       <div>
         <h3 class="biz-modal-title">{{ T.biz_post_help_title|default:'后处理方案说明' }}</h3>
-        <p class="biz-modal-sub">{{ T.biz_post_help_sub|default:'共 6 种后处理，按场景选择' }}</p>
+        <p class="biz-modal-sub">{{ T.biz_post_help_sub|default:'共 7 种后处理，按场景选择' }}</p>
       </div>
       <button type="button" class="biz-modal-close" onclick="closePostHelp()">&times;</button>
     </div>
@@ -328,6 +329,15 @@ select.biz-multi-select option:checked{background:#169F85;color:#fff;}
         </div>
         <div style="font-size:13px;color:#475569;line-height:1.6;">
           {{ T.biz_post_dwell_desc|default:'目标在布控区域内停留时间超过滞留阈值（秒）时报警。与区域入侵不同：区域入侵是进入即报，滞留是待够时间才报。' }}
+        </div>
+      </div>
+      <div class="post-help-item" style="padding:14px 0;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span class="tag tag-post" style="background:#dbeafe;color:#1e40af;">ABSENCE</span>
+          <b style="font-size:14px;color:#1e293b;">{{ T.biz_post_absence|default:'离岗检测' }}</b>
+        </div>
+        <div style="font-size:13px;color:#475569;line-height:1.6;">
+          {{ T.biz_post_absence_desc|default:'布控区域内连续超过离岗阈值（秒）没有出现检测目标时报警。与密度报警相反：密度是「人太多」，离岗是「没人」。适用于机房值守、收银台、值班岗、工位在岗监测等场景。' }}
         </div>
       </div>
     </div>
@@ -728,7 +738,8 @@ var POST_HINTS = {
   'LINE_COUNT': '{{ T.biz_post_line_count_hint|default:"按方向线 A→B 统计正向/逆向过线，达到阈值报警；布控需绘制矩形+方向线" }}',
   'DIRECTION': '{{ T.biz_post_direction_hint|default:"目标移动方向匹配 ref_angle 触发，参考角度 0=东 90=南 180=西 270=北" }}',
   'DENSITY': '{{ T.biz_post_density_hint|default:"区域内目标数 ≥ density_threshold 触发，需在布控区域配置密度阈值" }}',
-  'DWELL': '{{ T.biz_post_dwell_hint|default:"目标在区域内停留 ≥ loiter_threshold 秒触发" }}'
+  'DWELL': '{{ T.biz_post_dwell_hint|default:"目标在区域内停留 ≥ loiter_threshold 秒触发" }}',
+  'ABSENCE': '{{ T.biz_post_absence_hint|default:"区域内连续 absence_threshold 秒无匹配目标触发，需在布控区域配置离岗阈值；目标回岗后自动重新武装" }}'
 };
 function onPostChange(){
   var v = document.getElementById('f_post_process').value;

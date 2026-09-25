@@ -45,6 +45,13 @@ class AppConfig(AppConfig):
             import logging
             logging.getLogger("app.bootstrap").warning("schema upgrade: %s", e)
 
+        try:
+            from app.utils.schema_upgrade import ensure_zone_absence_threshold_column
+            ensure_zone_absence_threshold_column()
+        except Exception as e:
+            import logging
+            logging.getLogger("app.bootstrap").warning("schema upgrade: %s", e)
+
         # 仅在 runserver 的子进程（RUN_MAIN=true）启动后台服务，
         # 避免 reloader 主进程重复初始化 AnalysisManager / 推理池。
         if not is_main_worker:

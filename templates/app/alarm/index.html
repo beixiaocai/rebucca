@@ -80,6 +80,8 @@ github地址：https://github.com/beixiaocai/rebucca
           <option value="loiter">{{ T.ev_loiter|default:'滞留告警' }}</option>
           <option value="line_count">{{ T.ev_line_count|default:'越线计数告警' }}</option>
           <option value="line_cross">{{ T.ev_line_cross|default:'越线检测' }}</option>
+          <option value="density">{{ T.ev_density|default:'密度报警' }}</option>
+          <option value="absence">{{ T.ev_absence|default:'离岗检测告警' }}</option>
         </select>
         <button class="btn" onclick="loadAlarms()">{{ T.btn_refresh_symbol|default:'↻ 刷新' }}</button>
         <div class="alarm-auto-refresh">
@@ -109,7 +111,7 @@ var g_streams = [];
 var g_selectedIds = new Set();
 var g_currentPage = 1;
 var g_pageSize = 12;
-var ALARM_TYPES = ['entered_zone', 'loiter', 'line_count', 'line_cross'];
+var ALARM_TYPES = ['entered_zone', 'loiter', 'line_count', 'line_cross', 'density', 'absence'];
 var g_autoRefreshTimer = null;
 var g_autoRefreshCountdown = 10;
 var g_autoRefreshSec = 10;
@@ -218,6 +220,8 @@ function evName(t){
     loiter: _t('ev_loiter','滞留告警'),
     line_count: _t('ev_line_count','越线计数告警'),
     line_cross: _t('ev_line_cross','越线检测'),
+    density: _t('ev_density','密度报警'),
+    absence: _t('ev_absence','离岗检测告警'),
     motion: _t('ev_motion','运动')
   };
   return m[t] || t;

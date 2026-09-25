@@ -1,5 +1,5 @@
 # 作者：北小菜
-"""业务算法后处理 — 区域入侵(AREA) / 越线(LINE_CROSS) / 方向(DIRECTION) / 密度(DENSITY) / 滞留(DWELL)"""
+"""业务算法后处理 — 区域入侵(AREA) / 越线(LINE_CROSS) / 方向(DIRECTION) / 密度(DENSITY) / 滞留(DWELL) / 离岗(ABSENCE)"""
 import logging
 import math
 
@@ -12,9 +12,10 @@ POST_LINE_COUNT = "LINE_COUNT"
 POST_DIRECTION = "DIRECTION"
 POST_DENSITY = "DENSITY"
 POST_DWELL = "DWELL"
+POST_ABSENCE = "ABSENCE"
 
 # 支持小模型流程（flow_type 1/3/4）的后处理白名单
-SMALL_FLOW_POSTS = (POST_AREA, POST_LINE_CROSS, POST_LINE_COUNT, POST_DIRECTION, POST_DENSITY, POST_DWELL)
+SMALL_FLOW_POSTS = (POST_AREA, POST_LINE_CROSS, POST_LINE_COUNT, POST_DIRECTION, POST_DENSITY, POST_DWELL, POST_ABSENCE)
 # 支持大模型流程（flow_type 2）的后处理白名单（大模型主要做语义判断，几何类后处理意义有限）
 LLM_FLOW_POSTS = (POST_AREA,)
 
@@ -105,6 +106,21 @@ def track_matches_density_rule(track, biz_rule):
 def track_matches_dwell_rule(track, biz_rule):
     """滞留报警：DWELL 后处理（与 AREA 滞留类似，但作为独立后处理类型）"""
     if not biz_rule or biz_rule.get("post_process") != POST_DWELL:
+        return False
+    flow = int(biz_rule.get("flow_type") or 1)
+    if flow not in _small_flow_types():
+        return False
+    return _targets_hit(track, biz_rule)
+
+
+def track_matches_absence_rule(track, biz_rule):
+    """离岗检测：ABSENCE 后处理
+    注：离岗是"区域级"反向规则——关注的不是目标出现，而是目标消失。
+    本函数用于判定"该目标是否算作在岗"（类别/来源匹配即视为在场），
+    pipeline 在 _check_zones 中独立处理：区域内连续 absence_threshold 秒
+    无匹配目标则触发离岗报警。
+    """
+    if not biz_rule or biz_rule.get("post_process") != POST_ABSENCE:
         return False
     flow = int(biz_rule.get("flow_type") or 1)
     if flow not in _small_flow_types():
@@ -216,6 +232,8 @@ def matched_rules_for_track(track, zone_cfg):
             matched.append(r)
         elif post == POST_DWELL and track_matches_dwell_rule(track, r):
             matched.append(r)
+        elif post == POST_ABSENCE and track_matches_absence_rule(track, r):
+            matched.append(r)
     return matched
 
 
@@ -235,6 +253,7 @@ def build_alarm_context(event_type, track, zone_cfg, biz_rule=None):
         POST_DIRECTION: "方向入侵",
         POST_DENSITY: "密度报警",
         POST_DWELL: "滞留报警",
+        POST_ABSENCE: "离岗检测",
     }
     post_label = post_label_map.get(post, post)
 
@@ -283,6 +302,15 @@ def build_alarm_context(event_type, track, zone_cfg, biz_rule=None):
             reason = "%s：「%s」目标数 %d ≥ 阈值 %d" % (post_label, zone_name or "—", count, threshold)
         else:
             reason = "密度告警：%d 个目标" % count
+    elif event_type == "absence":
+        gone = float((track or {}).get("absence_seconds") or 0)
+        threshold = int((zone_cfg or {}).get("absence_threshold") or 0)
+        targets = "、".join((biz_rule or {}).get("target_labels") or []) or "—"
+        gone_txt = ("，已连续 %d 秒无目标" % gone) if gone >= 1 else ("，阈值 %d 秒" % threshold if threshold else "")
+        if biz_rule:
+            reason = "%s：「%s」连续无目标（检测目标：%s）%s" % (post_label, zone_name or "—", targets, gone_txt)
+        else:
+            reason = "离岗告警：「%s」连续无目标%s" % (zone_name or "—", gone_txt.strip("，"))
     elif event_type == "motion":
         return {}
     else:

@@ -998,7 +998,7 @@
         "biz_post_line_diff": "與越線檢測的區別：越線檢測是「過線立刻報」；越線計數是「累計到 N 人才報」，並可分別統計正向/逆向。",
         "biz_post_help": "說明",
         "biz_post_help_title": "後處理方案說明",
-        "biz_post_help_sub": "共 6 種後處理，按場景選擇；詳細說明見各項描述",
+        "biz_post_help_sub": "共 7 種後處理，按場景選擇；詳細說明見各項描述",
         "biz_line_count_threshold": "計數報警閾值",
         "biz_line_count_threshold_hint": "累計過線人數達到閾值時觸發報警；0 表示該方向不計數報警。佈控需繪製矩形區域 + 方向線 A→B 定義正向。",
         "biz_forward_count": "正向 (A→B)",
@@ -1061,6 +1061,13 @@
         "zone_ov_shared_infer": "共享推理池 · {n} worker",
         "alarm_auto_refresh": "自動刷新",
         "alarm_auto_refresh_unit": "秒",
-        "alarm_auto_refresh_sec_hint": "刷新間隔（秒，3-300）"
+        "alarm_auto_refresh_sec_hint": "刷新間隔（秒，3-300）",
+        "zone_density": "密度閾值",
+        "zone_absence": "離崗閾值",
+        "biz_post_absence": "離崗檢測",
+        "biz_post_absence_hint": "區域內連續 absence_threshold 秒無匹配目標觸發，需在布控區域配置離崗閾值；目標回崗後自動重新武裝",
+        "biz_post_absence_desc": "布控區域內連續超過離崗閾值（秒）沒有出現檢測目標時報警。與密度報警相反：密度是「人太多」，離崗是「沒人」。適用於機房值守、收銀台、值班崗、工位在崗監測等場景。",
+        "ev_density": "密度報警",
+        "ev_absence": "離崗檢測告警"
     }
 }

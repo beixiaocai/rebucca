@@ -569,6 +569,16 @@ github地址：https://github.com/beixiaocai/rebucca
               <div class="biz-hint" id="zoneRequiredHint" style="margin-top:6px;font-size:11px;color:#64748b;"></div>
             </div>
           </div>
+          <div class="zm-field-row">
+            <div class="zm-field">
+              <label>{{ T.zone_density|default:'密度阈值' }}</label>
+              <input id="f_density" type="number" value="0" min="0" placeholder="0=不检测密度">
+            </div>
+            <div class="zm-field">
+              <label>{{ T.zone_absence|default:'离岗阈值' }}</label>
+              <input id="f_absence" type="number" value="0" min="0" placeholder="0=不检测离岗">
+            </div>
+          </div>
           <div class="zm-field">
             <label>{{ T.zone_detect_rate|default:'算法检测频率' }}</label>
             <div class="zm-detect-box">
@@ -953,7 +963,7 @@ function isLinePost(post){
 }
 
 function isRegionPost(post){
-  return ['AREA','DWELL','DENSITY','DIRECTION'].indexOf(post) >= 0;
+  return ['AREA','DWELL','DENSITY','DIRECTION','ABSENCE'].indexOf(post) >= 0;
 }
 
 function needsLineGeometry(){
@@ -1339,6 +1349,8 @@ function editZone(id){
   document.getElementById('f_stream').value=z.stream_id;
   document.getElementById('f_name').value=z.name;
   document.getElementById('f_loiter').value=z.loiter_threshold;
+  document.getElementById('f_density').value=(z.density_threshold!==undefined)?z.density_threshold:0;
+  document.getElementById('f_absence').value=(z.absence_threshold!==undefined)?z.absence_threshold:0;
   document.getElementById('f_detect_interval').value=z.detect_interval_sec||1;
   document.getElementById('f_detect_frames').value=z.detect_frames||1;
   updateDetectPreview();
@@ -1363,6 +1375,8 @@ function openZoneModal(){
   fillStreamSelect(document.getElementById('f_stream'),false);
   document.getElementById('f_name').value='';
   document.getElementById('f_loiter').value=0;
+  document.getElementById('f_density').value=0;
+  document.getElementById('f_absence').value=0;
   document.getElementById('f_detect_interval').value=1;
   document.getElementById('f_detect_frames').value=1;
   updateDetectPreview();
@@ -1886,6 +1900,8 @@ function submitZone(){
     line_a: g_linePoints.length >= 1 ? JSON.stringify(g_linePoints[0]) : '',
     line_b: g_linePoints.length >= 2 ? JSON.stringify(g_linePoints[1]) : '',
     loiter_threshold:parseInt(document.getElementById('f_loiter').value,10)||0,
+    density_threshold:parseInt(document.getElementById('f_density').value,10)||0,
+    absence_threshold:parseInt(document.getElementById('f_absence').value,10)||0,
     detect_interval_sec:getDetectRatePayload().detect_interval_sec,
     detect_frames:getDetectRatePayload().detect_frames,
     color:document.getElementById('f_color').value.trim(),

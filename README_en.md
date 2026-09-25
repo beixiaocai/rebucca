@@ -17,7 +17,7 @@
 
 - Video access: RTSP / GB28181 streaming, ZLMediaKit forwarding, ONVIF discovery
 - Intelligent analysis: YOLO-PyTorch / ONNX / OpenVINO small models + optional LLM review
-- Deployment & alarms: polygon zones, 5 post-processing rules (intrusion / line-crossing / direction / density / dwell)
+- Deployment & alarms: polygon zones, 7 post-processing rules (intrusion / line-crossing / counting / direction / density / dwell / absence)
 - Operations: dashboard monitoring, streaming server start/stop, recording, multi-language (7 languages)
 
 ---
@@ -110,6 +110,24 @@ Log directory: `log/`. For the version number, see `framework/settings.py`.
 ---
 
 ## Changelog
+
+### v1.005
+- 2026/09/24
+- **New "Absence Detection" post-processing rule (7th business rule)**
+  - The inverse of the density rule: density alarms when "targets in zone ≥ threshold", absence alarms when "no target in zone for N consecutive seconds".
+  - Choose "Absence Detection" on the business algorithm page and configure the absence threshold (seconds) on the control zone. When no matching target appears in the zone for the threshold duration, an alarm is raised; the rule automatically re-arms once a target returns.
+  - Detection targets follow the algorithm's "target labels" configuration (e.g. person) — only matching targets count as "on duty".
+  - Typical scenarios: equipment room attendance, cashier desk monitoring, duty post monitoring, construction site watch, workstation supervision.
+  - Implementation: `POST_ABSENCE` and `ZoneModel.absence_threshold` in `models.py`; ABSENCE matching and alarm text in `biz_rules.py`; zone-level absence logic (presence timing / re-arm on return) in `pipeline.py`; `schema_upgrade.py` auto-adds the column for existing databases — no manual migration needed.
+- **Added the missing density threshold input (important fix)**
+  - Previously the density rule's `density_threshold` existed only as a backend field — the zone edit dialog had no input for it, so the threshold stayed 0 and density alarms could never fire.
+  - The zone dialog now includes both "Density Threshold" and "Absence Threshold" inputs, saved with the zone on create/edit.
+- **Alarm management supports density / absence type filters**
+  - The alarm list adds "Density Alarm" and "Absence Alarm" filter options and type labels.
+- **Zone-level alarm snapshot improvement**
+  - Zone-level alarms (density / absence) have no specific target box; snapshots no longer draw a 0×0 detection box at the top-left corner, keeping only the zone polygon and the event badge.
+- **Internationalization**
+  - Added absence/density translation keys across all 7 languages; filled in the missing `zone_state_enabled` / `zone_state_disabled` keys for Simplified Chinese.
 
 ### v1.004
 - 2026/09/02
