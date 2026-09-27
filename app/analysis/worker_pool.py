@@ -1,9 +1,7 @@
-# 作者：北小菜
 # 官网：https://www.yuturuishi.com
-# 微信：bilibili_bxc
-# 哔哩哔哩主页：https://space.bilibili.com/487906612
-# gitee地址：https://gitee.com/Vanishi/rebucca
-# github地址：https://github.com/beixiaocai/rebucca
+# 微信：yuturuishi
+# gitee开源地址：https://gitee.com/yuturuishi/rebucca
+# github开源地址：https://github.com/beixiaocai/rebucca
 """检测器缓存池（按算法 ID 缓存引擎实例）
 
 阶段1：每路 pipeline 持有 engine 实例（线程安全由各引擎保证）。

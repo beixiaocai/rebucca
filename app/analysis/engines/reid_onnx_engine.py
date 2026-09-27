@@ -1,4 +1,3 @@
-# 作者：北小菜
 """ReID 特征提取引擎 — OSNet 系列 ONNX（仅 OnnxRuntime）
 
 输入：人体 crop BGR → resize → ImageNet 归一化 → embedding 向量

@@ -1,4 +1,3 @@
-# 作者：北小菜
 """业务算法后处理 — 区域入侵(AREA) / 越线(LINE_CROSS) / 方向(DIRECTION) / 密度(DENSITY) / 滞留(DWELL) / 离岗(ABSENCE)"""
 import logging
 import math

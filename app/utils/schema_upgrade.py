@@ -1,4 +1,3 @@
-# 作者：北小菜
 """轻量 SQLite 列升级（无 Django migrations 时使用）"""
 import logging
 

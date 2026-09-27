@@ -1,9 +1,7 @@
-# 作者：北小菜
 # 官网：https://www.yuturuishi.com
-# 微信：bilibili_bxc
-# 哔哩哔哩主页：https://space.bilibili.com/487906612
-# gitee地址：https://gitee.com/Vanishi/rebucca
-# github地址：https://github.com/beixiaocai/rebucca
+# 微信：yuturuishi
+# gitee开源地址：https://gitee.com/yuturuishi/rebucca
+# github开源地址：https://github.com/beixiaocai/rebucca
 """运动检测（OpenCV 背景减除 + 形态学优化）
 
 参考 Frigate 的运动门控思路：先做轻量运动检测，只在有运动的区域跑目标检测。
