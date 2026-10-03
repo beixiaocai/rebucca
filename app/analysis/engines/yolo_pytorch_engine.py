@@ -1,7 +1,7 @@
 # 官网：https://www.yuturuishi.com
 # 微信：yuturuishi
 # gitee开源地址：https://gitee.com/yuturuishi/rebucca
-# github开源地址：https://github.com/beixiaocai/rebucca
+# github开源地址：https://github.com/yuturuishi/rebucca
 """Yolo-PyTorch 引擎（主引擎，最高准确率）
 
 基于 ultralytics 包，原生支持 YOLOv5/v8/v11/YOLO26 全部任务：

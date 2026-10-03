@@ -1,7 +1,7 @@
 # 官网：https://www.yuturuishi.com
 # 微信：yuturuishi
 # gitee开源地址：https://gitee.com/yuturuishi/rebucca
-# github开源地址：https://github.com/beixiaocai/rebucca
+# github开源地址：https://github.com/yuturuishi/rebucca
 """分析事件桥 — 消费子进程 event_queue，在主进程写库"""
 import logging
 import queue

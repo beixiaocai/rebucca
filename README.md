@@ -7,7 +7,7 @@
 - 官网：https://www.yuturuishi.com
 - 微信：yuturuishi
 - gitee开源地址：https://gitee.com/yuturuishi/rebucca
-- github开源地址：https://github.com/beixiaocai/rebucca
+- github开源地址：https://github.com/yuturuishi/rebucca
 
 - Rebucca是多路视频接入与智能布控分析平台。支持 GB28181 / RTSP、YOLO 小模型检测、OpenAI 兼容大模型复核、多边形布控与结构化报警。
 

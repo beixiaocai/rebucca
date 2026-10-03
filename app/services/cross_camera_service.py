@@ -1,7 +1,7 @@
 # 官网：https://www.yuturuishi.com
 # 微信：yuturuishi
 # gitee开源地址：https://gitee.com/yuturuishi/rebucca
-# github开源地址：https://github.com/beixiaocai/rebucca
+# github开源地址：https://github.com/yuturuishi/rebucca
 """跨摄像头关联 — 基于「同类别 + 时间窗口 + 空间邻近摄像头」的轻量启发式匹配"""
 import logging
 import threading

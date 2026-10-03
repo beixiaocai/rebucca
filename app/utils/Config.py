@@ -1,7 +1,7 @@
 # 官网：https://www.yuturuishi.com
 # 微信：yuturuishi
 # gitee开源地址：https://gitee.com/yuturuishi/rebucca
-# github开源地址：https://github.com/beixiaocai/rebucca
+# github开源地址：https://github.com/yuturuishi/rebucca
 """Rebucca 启动配置 — 所有可配置项均来自 config.json，后台「启动配置」页可编辑。"""
 import json
 import os

@@ -1,7 +1,7 @@
 # 官网：https://www.yuturuishi.com
 # 微信：yuturuishi
 # gitee开源地址：https://gitee.com/yuturuishi/rebucca
-# github开源地址：https://github.com/beixiaocai/rebucca
+# github开源地址：https://github.com/yuturuishi/rebucca
 """共享推理子进程池 — 多路摄像头复用同一组 YOLO 引擎，避免每路重复加载模型。
 
 阶段2架构：

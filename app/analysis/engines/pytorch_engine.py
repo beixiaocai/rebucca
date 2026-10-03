@@ -1,7 +1,7 @@
 # 官网：https://www.yuturuishi.com
 # 微信：yuturuishi
 # gitee开源地址：https://gitee.com/yuturuishi/rebucca
-# github开源地址：https://github.com/beixiaocai/rebucca
+# github开源地址：https://github.com/yuturuishi/rebucca
 """PyTorch 引擎实现
 
 支持加载 ultralytics YOLOv8/v5/v7 .pt 模型（依赖 ultralytics 包），

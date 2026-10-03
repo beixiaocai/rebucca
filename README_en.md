@@ -7,7 +7,7 @@
 - Website: https://www.yuturuishi.com
 - WeChat: yuturuishi
 - Gitee: https://gitee.com/yuturuishi/rebucca
-- GitHub: https://github.com/beixiaocai/rebucca
+- GitHub: https://github.com/yuturuishi/rebucca
 
 - A multi-channel video access and intelligent surveillance/deployment analysis platform. Supports GB28181 / RTSP, YOLO small-model detection, OpenAI-compatible LLM review, polygon-based deployment zones, and structured alarms.
 

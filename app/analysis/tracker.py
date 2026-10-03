@@ -1,7 +1,7 @@
 # 官网：https://www.yuturuishi.com
 # 微信：yuturuishi
 # gitee开源地址：https://gitee.com/yuturuishi/rebucca
-# github开源地址：https://github.com/beixiaocai/rebucca
+# github开源地址：https://github.com/yuturuishi/rebucca
 """单摄像头目标跟踪（轻量 IoU 关联）
 
 设计：参考 Frigate/Norfair 的追踪思路，但用最小依赖实现一个 IoU 关联器，

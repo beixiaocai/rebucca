@@ -1,7 +1,7 @@
 # 官网：https://www.yuturuishi.com
 # 微信：yuturuishi
 # gitee开源地址：https://gitee.com/yuturuishi/rebucca
-# github开源地址：https://github.com/beixiaocai/rebucca
+# github开源地址：https://github.com/yuturuishi/rebucca
 """YOLO 共享后处理 —— 按 (algorithm_type, task_type) 分发
 
 支持版本：yolo5 / yolo8 / yolo11 / yolo26

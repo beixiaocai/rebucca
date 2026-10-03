@@ -1,7 +1,7 @@
 # 官网：https://www.yuturuishi.com
 # 微信：yuturuishi
 # gitee开源地址：https://gitee.com/yuturuishi/rebucca
-# github开源地址：https://github.com/beixiaocai/rebucca
+# github开源地址：https://github.com/yuturuishi/rebucca
 from app.utils.LanguageUtils import LANG_UI_DICT, LANG_UI_JSON_CACHE, f_parse_request_lang, GSettingsLanguages
 from app.utils.GlobalUtils import g_session_key_user
 
