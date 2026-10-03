@@ -158,3 +158,25 @@ Log directory: `log/`. For the version number, see `framework/settings.py`.
   - Completed the 16 translation keys related to the statistics dashboard in all 7 languages (es / ko / ru / vi / zh-hk / zh / en), fixing the issue where only zh / en had translations and other languages displayed raw keys.
 
 > For the version number, see `PROJECT_VERSION` in `framework/settings.py`.
+
+---
+
+## Open Source License & Third-Party Dependencies
+
+rebucca's **entire source code is open source under the MIT License** — free to use, modify, and distribute (including commercially).
+
+At runtime this project aggregates several third-party components, each under its own license, which you must comply with:
+
+| Component | Purpose | License |
+|-----------|---------|---------|
+| rebucca source code | The platform itself | MIT |
+| ONNX Runtime | ONNX model inference | MIT |
+| OpenVINO | OpenVINO model inference | Apache-2.0 |
+| Ultralytics (YOLO-PyTorch engine) | Load `.pt` for YOLO inference | AGPL-3.0 |
+| ZLMediaKit, etc. | Streaming media (`zlm/`) | MIT (see `zlm/THIRD_PARTY_LICENSES`) |
+| PyTorch / OpenCV / Django, etc. | Base dependencies | BSD / Apache and other permissive licenses |
+
+- **YOLO-PyTorch engine** depends on Ultralytics (AGPL-3.0): for commercial use (closed-source products, private deployments, SaaS, edge/embedded devices, etc.) you must comply with Ultralytics' license terms or purchase its Enterprise License; rebucca's MIT license does not cover that obligation. To avoid AGPL entirely, use the ONNX / OpenVINO engine instead.
+- **Model weights**: the repository ships with example weights (`static/upload/weight/`); their license is the responsibility of the provider. Ultralytics pretrained weights (`*.pt`) are subject to AGPL / Enterprise license terms.
+- **Version check (the only outbound request)**: when you open the "Version" page or the console dashboard, rebucca sends one version-check request to `http://www.yuturuishi.com/api/rebucca/checkVersion` to notify you of new versions. The request carries only the version number and OS/runtime environment info (hostname, system version, IP, uptime, etc.); it contains **no business data** such as video, accounts, or recordings. The previously periodic heartbeat reporting has been removed. If you prefer not to send this request, block it at the network level.
+- **Disclaimer**: users are responsible for the legality of their deployment environment, models, and data. rebucca is provided "as is", without warranty.

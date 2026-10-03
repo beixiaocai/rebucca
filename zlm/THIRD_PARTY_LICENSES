@@ -1,0 +1,15 @@
+# zlm/ 第三方组件许可声明
+
+本目录包含的预编译二进制来自以下开源项目，版权归各自作者所有。rebucca 仅分发其二进制文件、未修改源码；完整许可文本见各项目官方仓库。
+
+## ZLMediaKit（流媒体服务器 rebucca_zlm）
+- 许可：MIT License
+- 仓库：https://github.com/ZLMediaKit/ZLMediaKit
+
+## OpenSSL（libcrypto.so / libssl.so）
+- 许可：OpenSSL License / Apache-2.0
+- 官网：https://www.openssl.org
+
+## libsrtp（libsrtp2.so）
+- 许可：BSD-3-Clause
+- 仓库：https://github.com/cisco/libsrtp

@@ -159,3 +159,25 @@ python manage.py runserver 0.0.0.0:10001
   - 补齐统计看板相关 16 个翻译键至全部 7 种语言（es / ko / ru / vi / zh-hk / zh / en），修复此前仅 zh / en 有译、其余语言界面显示原始 key 的问题。
 
 > 版本号见 `framework/settings.py` 的 `PROJECT_VERSION`。
+
+---
+
+## 开源协议与第三方依赖说明
+
+rebucca **全部源代码以 MIT License 开源**，可自由使用、修改、分发（含商用）。
+
+本项目在运行时聚合若干第三方组件，各自遵循其许可，使用者需自行遵守：
+
+| 组件 | 用途 | 许可 |
+|------|------|------|
+| rebucca 源代码 | 平台本体 | MIT |
+| ONNX Runtime | ONNX 模型推理 | MIT |
+| OpenVINO | OpenVINO 模型推理 | Apache-2.0 |
+| Ultralytics（YOLO-PyTorch 引擎） | 加载 `.pt` 做 YOLO 推理 | AGPL-3.0 |
+| ZLMediaKit 等 | 流媒体（`zlm/`） | MIT（见 `zlm/THIRD_PARTY_LICENSES`） |
+| PyTorch / OpenCV / Django 等 | 基础依赖 | BSD / Apache 等宽松许可 |
+
+- **YOLO-PyTorch 引擎**依赖 Ultralytics（AGPL-3.0）：若将其用于商业用途（闭源产品、私有部署、SaaS、边缘/嵌入式设备等），须遵守 Ultralytics 许可条款或购买其 Enterprise License；rebucca 的 MIT 许可不覆盖该部分义务。如需完全规避 AGPL，请改用 ONNX / OpenVINO 引擎。
+- **模型权重**：仓库内置示例权重（`static/upload/weight/`），其许可由提供方负责；Ultralytics 预训练权重（`*.pt`）受 AGPL / 企业许可约束。
+- **版本检测（唯一对外网络请求）**：rebucca 会在打开「版本」页或控制台主页时，向官网 `http://www.yuturuishi.com/api/rebucca/checkVersion` 发起一次版本检测请求，用于提示新版本。请求仅包含版本号、操作系统与运行环境信息（主机名、系统版本、IP、运行时长等），**不含任何视频、账号、录像等业务数据**。原先的周期性心跳上报已移除。如不想发起该请求，可在网络层面拦截。
+- **免责**：使用者应自行确保部署环境、所用模型与数据的合法性。rebucca 按「现状」提供，不作任何担保。
